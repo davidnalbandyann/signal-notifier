@@ -20,6 +20,8 @@ env/
 data/
 test-results/
 .playwright-mcp/
+AGENTS.md
+.opencode/
 design/
 
 # Frontend

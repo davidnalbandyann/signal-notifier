@@ -32,3 +32,7 @@ export function resendNotification(id: number) {
 export function reanalyze(id: number) {
   return api.post<{ ok: boolean }>(`/api/analyses/${id}/reanalyze`)
 }
+
+export function deleteAnalysis(id: number) {
+  return api.delete<{ ok: boolean }>(`/api/analyses/${id}`)
+}

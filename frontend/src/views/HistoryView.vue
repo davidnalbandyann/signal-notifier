@@ -5,7 +5,7 @@ import AppShell from '@/components/layout/AppShell.vue'
 import ScoreBar from '@/components/ui/ScoreBar.vue'
 import BaseChip from '@/components/ui/BaseChip.vue'
 import Toast from '@/components/ui/Toast.vue'
-import { getAnalyses, resendNotification, reanalyze } from '@/api/analyses'
+import { getAnalyses, resendNotification, reanalyze, deleteAnalysis } from '@/api/analyses'
 import { getCharts } from '@/api/charts'
 import type { Analysis, Chart } from '@/types'
 
@@ -123,8 +123,38 @@ async function handleReanalyze(e: Event, id: number) {
   }
 }
 
+async function handleDelete(e: Event, id: number) {
+  e.stopPropagation()
+  if (!confirm('Delete this analysis? This cannot be undone.')) return
+  actionLoading.value = id
+  try {
+    await deleteAnalysis(id)
+    toast.value = { show: true, message: 'Analysis deleted' }
+    load()
+  } catch {
+    toast.value = { show: true, message: 'Failed to delete' }
+  } finally {
+    actionLoading.value = null
+  }
+}
+
 const startItem = computed(() => total.value === 0 ? 0 : (page.value - 1) * pageSize.value + 1)
 const endItem = computed(() => Math.min(page.value * pageSize.value, total.value))
+
+function formatTs(iso: string) {
+  const d = new Date(iso)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today.getTime() - 86400000)
+  const datePart = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+
+  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  if (datePart.getTime() === today.getTime()) return `Today · ${time}`
+  if (datePart.getTime() === yesterday.getTime()) return `Yesterday · ${time}`
+
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${time}`
+}
 </script>
 
 <template>
@@ -210,7 +240,7 @@ const endItem = computed(() => Math.min(page.value * pageSize.value, total.value
               :key="a.id"
               @click="goToAnalysis(a.id)"
             >
-              <td class="mono" style="font-size:12px; color:var(--muted)">{{ a.timestamp }}</td>
+              <td class="mono ts-col">{{ formatTs(a.timestamp) }}</td>
               <td><b>{{ a.chart_name }}</b></td>
               <td>
                 <span :class="['chip', a.direction]">{{ a.direction }}</span>
@@ -240,6 +270,11 @@ const endItem = computed(() => Math.min(page.value * pageSize.value, total.value
                   @click="(e) => handleReanalyze(e, a.id)"
                   :disabled="actionLoading === a.id"
                 >Reanalyze</button>
+                <button
+                  class="link-btn danger"
+                  @click="(e) => handleDelete(e, a.id)"
+                  :disabled="actionLoading === a.id"
+                >Delete</button>
               </td>
             </tr>
           </tbody>
@@ -431,6 +466,8 @@ tbody tr:last-child td { border-bottom: 0; }
   transition: background .12s;
 }
 .link-btn:hover { background: var(--accent-soft); }
+.link-btn.danger { color: var(--red); }
+.link-btn.danger:hover { background: var(--red-soft); }
 .link-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .pag {
@@ -472,4 +509,5 @@ tbody tr:last-child td { border-bottom: 0; }
   font: 12px var(--font-mono);
 }
 .mono { font-family: var(--font-mono); }
+.ts-col { font-size: 12px; color: var(--muted); white-space: nowrap; }
 </style>

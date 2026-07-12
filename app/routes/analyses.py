@@ -90,6 +90,15 @@ async def get_screenshot(analysis_id: int):
         return Response(status_code=404)
 
 
+@router.delete("/{analysis_id}")
+async def delete_analysis(analysis_id: int):
+    db = get_db()
+    db.execute("DELETE FROM notifications WHERE analysis_id = ?", (analysis_id,))
+    db.execute("DELETE FROM analyses WHERE id = ?", (analysis_id,))
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/{analysis_id}/resend")
 async def resend_analysis(analysis_id: int):
     return {"ok": True}

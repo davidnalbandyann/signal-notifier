@@ -5,6 +5,10 @@ export function getCharts() {
   return api.get<Chart[]>('/api/charts')
 }
 
+export function getChart(id: number) {
+  return api.get<Chart>(`/api/charts/${id}`)
+}
+
 export function addChart(data: { name: string; url: string }) {
   return api.post<Chart>('/api/charts', data)
 }

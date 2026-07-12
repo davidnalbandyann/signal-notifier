@@ -10,3 +10,11 @@ export function getNotifications(params: Record<string, string> = {}) {
   const qs = new URLSearchParams(params).toString()
   return api.get<NotificationsResponse>(`/api/notifications${qs ? '?' + qs : ''}`)
 }
+
+export function getNotification(id: number) {
+  return api.get<Notification>(`/api/notifications/${id}`)
+}
+
+export function deleteNotification(id: number) {
+  return api.delete<{ ok: boolean }>(`/api/notifications/${id}`)
+}

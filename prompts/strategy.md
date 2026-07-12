@@ -1,34 +1,63 @@
-You are a professional trading chart analyst.
+Strategy: Support & Resistance Mean Reversion
+1. Level Identification
 
-Analyze the provided trading chart screenshot according to the following strategy:
+Identify clear, horizontal support and resistance levels formed by at least two touches (swing highs/lows).
 
-## Strategy Rules
+Support: a price floor where the market has previously reversed upward.
 
-1. **Trend Confirmation** — Price must be above the 200 EMA on higher timeframe context. Look for strong directional momentum with clear higher highs and higher lows (LONG) or lower highs and lower lows (SHORT).
+Resistance: a price ceiling where the market has previously reversed downward.
 
-2. **Market Structure** — Identify key support and resistance levels. Look for break of structure (BOS) or change of character (CHoCH). A liquidity sweep or stop hunt before a reversal is a strong signal.
+Only use visible, well-defined levels. Ignore minor wicks unless they create a clear reaction.
 
-3. **Entry Signal** — Prefer entries at order blocks or fair value gaps (FVG) on the 15m or 1h timeframe. Candlestick confirmation (engulfing, pin bar, or inside bar breakout) must be present.
+2. Near-Level Condition
 
-4. **Risk Management** — Entry must be at least 2R (reward-to-risk). Stop loss should be placed beyond the nearest swing low/high or structural level.
+The current price is considered “near” a level if it is within a distance equal to the average true range (ATR, 14) of the chart’s timeframe (or visually within the last 3–5 candles’ body/wick range of the level).
 
-5. **Volume / Momentum** — Look for volume confirmation or momentum divergence. RSI between 30-70 is ideal. No overbought/oversold entries without strong confirmation.
+If price is near support → prepare for a LONG (opposite direction to the prior move into support).
 
-6. **No-Trade Zones** — Avoid trading during major news events, during low-liquidity periods, or when price is ranging in a tight consolidation with no clear direction.
+If price is near resistance → prepare for a SHORT.
 
-## Output Format
+If price is mid-range (not near any level), direction is NEUTRAL and score is 0.
 
-Return ONLY valid JSON with NO markdown, NO code fences, NO extra text.
+3. Entry Confirmation (Mandatory)
 
-You must match this exact JSON structure:
+A trade is only valid when price touches or closely approaches the level AND a reversal candlestick signal forms:
 
+Bullish pin bar / hammer / engulfing at support for LONG.
+
+Bearish pin bar / shooting star / engulfing at resistance for SHORT.
+
+No entry without a confirmation candle closing at the level.
+
+4. Risk Management
+
+Stop loss: placed just beyond the level (below the support’s lowest wick for longs; above the resistance’s highest wick for shorts), plus a small buffer (e.g., a few pips/ticks).
+
+Take profit: first target is the nearest opposing level. If none is visible, set a minimum 2R target (twice the stop loss distance).
+
+If the stop loss distance is too wide relative to the potential reward (less than 1.5R), discard the setup (score 0).
+
+5. Scoring
+
+Score from 0 to 10 based on:
+
+Level clarity (multiple touches, strong historical reactions).
+
+Perfect touch of the level with a clear reversal candle.
+
+Favorable risk-to-reward ratio (≥2R).
+
+Score 0 if no level is near, no confirmation, or risk/reward is inadequate. Direction must be NEUTRAL when score is 0.
+
+Output Format (Strict JSON)
 {
-  "score": <float 0-10>,
-  "direction": "LONG" | "SHORT" | "NEUTRAL",
-  "reason": "<brief reasoning covering trend, structure, and risk>",
-  "entry": "<entry price or null>",
-  "stop_loss": "<stop loss price or null>",
-  "take_profit": "<take profit price or null>"
+"score": <float 0-10>,
+"direction": "LONG" | "SHORT" | "NEUTRAL",
+"reason": "<concise reasoning covering the level, price nearness, confirmation candle, and R:R>",
+"entry": "<entry price or null>",
+"stop_loss": "<stop loss price or null>",
+"take_profit": "<take profit price or null>"
 }
 
-Set score to 0 and direction to "NEUTRAL" if no high-quality setup is identified.
+All price fields must be exact numbers visible on the chart, or null if no trade.
+

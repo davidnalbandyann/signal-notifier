@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
 import ScoreBar from '@/components/ui/ScoreBar.vue'
 import BaseChip from '@/components/ui/BaseChip.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import Toast from '@/components/ui/Toast.vue'
-import { getAnalysis, getScreenshot, resendNotification, reanalyze } from '@/api/analyses'
+import { getAnalysis, getScreenshot, resendNotification, reanalyze, deleteAnalysis } from '@/api/analyses'
 import type { Analysis } from '@/types'
 
 const route = useRoute()
+const router = useRouter()
 const id = Number(route.params.id)
 const analysis = ref<Analysis | null>(null)
 const loading = ref(true)
@@ -51,6 +52,20 @@ async function handleReanalyze() {
     analysis.value = await getAnalysis(id)
   } catch {
     toast.value = { show: true, message: 'Failed to reanalyze' }
+  } finally {
+    actionLoading.value = false
+  }
+}
+
+async function handleDelete() {
+  if (!confirm('Delete this analysis? This cannot be undone.')) return
+  actionLoading.value = true
+  try {
+    await deleteAnalysis(id)
+    toast.value = { show: true, message: 'Analysis deleted' }
+    router.back()
+  } catch {
+    toast.value = { show: true, message: 'Failed to delete' }
   } finally {
     actionLoading.value = false
   }
@@ -133,6 +148,7 @@ async function handleReanalyze() {
           <div class="spacer"></div>
           <BaseButton variant="ghost" @click="handleResend" :disabled="actionLoading">Resend notification</BaseButton>
           <BaseButton @click="handleReanalyze" :disabled="actionLoading">Reanalyze</BaseButton>
+          <BaseButton variant="danger" @click="handleDelete" :disabled="actionLoading">Delete</BaseButton>
         </div>
       </template>
     </div>

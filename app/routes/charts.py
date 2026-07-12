@@ -28,6 +28,15 @@ async def create_chart(body: dict):
     return _chart_row(row)
 
 
+@router.get("/{chart_id}")
+async def get_chart(chart_id: int):
+    db = get_db()
+    row = db.execute("SELECT * FROM charts WHERE id = ?", (chart_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Chart not found")
+    return _chart_row(row)
+
+
 @router.put("/{chart_id}")
 async def update_chart(chart_id: int, body: dict):
     db = get_db()
