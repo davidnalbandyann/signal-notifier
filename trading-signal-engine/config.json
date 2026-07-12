@@ -1,0 +1,29 @@
+{
+  "data_source": {
+    "type": "binance",
+    "symbol": "btcusdt",
+    "timeframe": "15m"
+  },
+  "strategy": {
+    "type": "bollinger_squeeze",
+    "params": {
+      "period": 20,
+      "stddev_mult": 2.0,
+      "bandwidth_threshold": 0.03,
+      "volume_mult": 1.5,
+      "squeeze_candles": 3,
+      "use_rsi": true,
+      "rsi_period": 14,
+      "rsi_threshold": 50,
+      "cooldown_candles": 4
+    }
+  },
+  "python_service": {
+    "url": "http://127.0.0.1:8000/trigger",
+    "timeout_sec": 2,
+    "auth_token": ""
+  },
+  "logging": {
+    "level": "info"
+  }
+}
