@@ -32,7 +32,16 @@ FetchContent_Declare(
 set(USE_TLS ON CACHE BOOL "Enable TLS support for IXWebSocket")
 FetchContent_MakeAvailable(ixwebsocket)
 
-# --- M4 target ---
+# --- cpr (HTTP client) ---
+find_package(CURL REQUIRED)
+FetchContent_Declare(
+    cpr
+    GIT_REPOSITORY https://github.com/libcpr/cpr.git
+    GIT_TAG 1.10.5
+)
+FetchContent_MakeAvailable(cpr)
+
+# --- M5 target ---
 add_executable(trading_signal_engine
     src/main.cpp
     src/data_source.cpp
@@ -45,6 +54,8 @@ add_executable(trading_signal_engine
     src/bollinger_squeeze_breakout.h
     src/binance_websocket_source.cpp
     src/binance_websocket_source.h
+    src/signal_sender.cpp
+    src/signal_sender.h
     src/utils/circular_buffer.h
     src/utils/json_helpers.h
 )
@@ -54,6 +65,7 @@ target_link_libraries(trading_signal_engine
     nlohmann_json::nlohmann_json
     spdlog::spdlog
     ixwebsocket::ixwebsocket
+    cpr::cpr
 )
 
 target_include_directories(trading_signal_engine PRIVATE src)

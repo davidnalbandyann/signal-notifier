@@ -1,6 +1,7 @@
 #include "binance_websocket_source.h"
 #include "data_source.h"
-#include "data_source_interface.h"
+#include "signal_sender.h"
+#include "strategy.h"
 #include "utils/json_helpers.h"
 
 #include <csignal>
@@ -12,6 +13,7 @@
 #include <spdlog/spdlog.h>
 
 static std::atomic<bool> g_running{true};
+static DataSource* g_source{nullptr};
 
 static void handleSignal(int) {
     g_running = false;
@@ -54,18 +56,44 @@ int main(int argc, char* argv[]) {
 
     spdlog::info("config loaded: {}", config_path);
 
-    auto source = std::make_unique<BinanceWebSocketSource>(
-        cfg["data_source"]["symbol"].get<std::string>(),
-        cfg["data_source"]["timeframe"].get<std::string>()
-    );
-    source->start();
+    // Instantiate pipeline
+    auto source = createDataSource(cfg["data_source"]);
+    g_source = source.get();
 
+    auto strategy = createStrategy(cfg["strategy"]);
+
+    auto& svc = cfg["python_service"];
+    SignalSender sender(
+        svc["url"].get<std::string>(),
+        svc["timeout_sec"].get<int>(),
+        svc.value("auth_token", std::string())
+    );
+
+    std::string timeframe = cfg["data_source"].value("timeframe", std::string("15m"));
+
+    source->start();
     spdlog::info("engine running, waiting for candles...");
 
     while (g_running) {
         OHLCV candle;
-        if (source->waitForCandle(candle, 200)) {
-            spdlog::info("main: {} close={} ts={}", candle.symbol, candle.close, candle.timestamp);
+
+        // waitForCandle is specific to BinanceWebSocketSource; use dynamic_cast
+        auto* ws = dynamic_cast<BinanceWebSocketSource*>(source.get());
+        bool got = false;
+        if (ws) {
+            got = ws->waitForCandle(candle, 200);
+        } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        }
+
+        if (!g_running) break;
+
+        if (got) {
+            strategy->onCandle(candle);
+
+            if (auto sig = strategy->checkSignal()) {
+                sender.send(*sig, timeframe);
+            }
         }
     }
 
