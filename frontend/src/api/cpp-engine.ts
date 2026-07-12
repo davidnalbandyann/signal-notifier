@@ -12,3 +12,7 @@ export function startEngine() {
 export function stopEngine() {
   return api.post<{ ok: boolean }>('/api/cpp-engine/stop')
 }
+
+export function getEngineLogs() {
+  return api.get<{ lines: string[] }>('/api/cpp-engine/logs')
+}

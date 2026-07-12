@@ -13,6 +13,7 @@ export interface Analysis {
   sent: boolean
   screenshot_url?: string
   notification_id?: number | null
+  signal_json?: string | null
 }
 
 export interface Chart {

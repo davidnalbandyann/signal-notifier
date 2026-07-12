@@ -1,6 +1,7 @@
 import asyncio
 import structlog
 import time
+from collections import deque
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Request
@@ -12,6 +13,9 @@ logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/cpp-engine", tags=["cpp_engine"])
 
+# Ring buffer of recent C++ stdout lines (shared across requests)
+_log_buffer: deque = deque(maxlen=500)
+
 
 async def _pipe_stdout(proc: asyncio.subprocess.Process) -> None:
     """Read and log the C++ engine's stdout until the process exits."""
@@ -21,7 +25,9 @@ async def _pipe_stdout(proc: asyncio.subprocess.Process) -> None:
         line = await proc.stdout.readline()
         if not line:
             break
-        logger.info("cpp_engine", line=line.decode("utf-8", errors="replace").rstrip())
+        decoded = line.decode("utf-8", errors="replace").rstrip()
+        logger.info("cpp_engine", line=decoded)
+        _log_buffer.append(decoded)
 
 
 async def _stop_engine(app_state) -> None:
@@ -84,6 +90,13 @@ async def stop_engine(request: Request):
     """Stop the C++ engine subprocess (SIGTERM, kill after 5s)."""
     await _stop_engine(request.app.state)
     return {"ok": True}
+
+
+@router.get("/logs")
+async def engine_logs():
+    """Return the most recent C++ engine stdout lines."""
+    lines = list(_log_buffer)
+    return {"lines": lines}
 
 
 @router.get("/status")
