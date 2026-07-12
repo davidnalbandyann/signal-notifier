@@ -26,6 +26,9 @@ FetchContent_MakeAvailable(spdlog)
 # --- Minimal M1 target (no WS / HTTP yet) ---
 add_executable(trading_signal_engine
     src/main.cpp
+    src/data_source_interface.h
+    src/strategy_interface.h
+    src/utils/circular_buffer.h
     src/utils/json_helpers.h
 )
 

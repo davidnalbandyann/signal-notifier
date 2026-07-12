@@ -1,3 +1,6 @@
+#include "data_source_interface.h"
+#include "strategy_interface.h"
+#include "utils/circular_buffer.h"
 #include "utils/json_helpers.h"
 
 #include <nlohmann/json.hpp>
@@ -59,6 +62,10 @@ int main(int argc, char* argv[]) {
                  svc["timeout_sec"].get<int>());
 
     spdlog::info("engine initialized, waiting for data...");
+
+    CircularBuffer<OHLCV> buffer(5);
+    buffer.push({"BTCUSDT", 1000, 60000, 61000, 59000, 60500, 100.0});
+    spdlog::info("buffer size={} latest_close={}", buffer.size(), buffer.latest().close);
 
     return 0;
 }
