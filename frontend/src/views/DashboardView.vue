@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import AppShell from '@/components/layout/AppShell.vue'
 import StatCard from '@/components/ui/StatCard.vue'
 import PulseIndicator from '@/components/ui/PulseIndicator.vue'
@@ -8,81 +8,12 @@ import ScoreBar from '@/components/ui/ScoreBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { getStatus, triggerScan, pauseScan, resumeScan } from '@/api/dashboard'
-import { getEngineStatus, startEngine, stopEngine, getEngineLogs } from '@/api/cpp-engine'
 
 const loading = ref(true)
 const status = ref<Awaited<ReturnType<typeof getStatus>> | null>(null)
 const error = ref('')
 const toast = ref({ show: false, message: '' })
 const scanLoading = ref(false)
-const engineStatus = ref<Awaited<ReturnType<typeof getEngineStatus>> | null>(null)
-const engineLoading = ref(false)
-const logLines = ref<string[]>([])
-const showLogs = ref(false)
-const logsLoading = ref(false)
-let logPollTimer: ReturnType<typeof setInterval> | null = null
-
-async function loadLogs() {
-  if (!engineStatus.value?.running) return
-  logsLoading.value = true
-  try {
-    const r = await getEngineLogs()
-    logLines.value = r.lines
-  } catch {
-    // silent
-  } finally {
-    logsLoading.value = false
-  }
-}
-
-function toggleLogs() {
-  showLogs.value = !showLogs.value
-  if (showLogs.value && engineStatus.value?.running) {
-    loadLogs()
-    logPollTimer = setInterval(loadLogs, 3000)
-  } else if (!showLogs.value && logPollTimer) {
-    clearInterval(logPollTimer)
-    logPollTimer = null
-  }
-}
-
-// Watch engine status: stop log polling when engine stops
-watch(() => engineStatus.value?.running, (running) => {
-  if (!running) {
-    showLogs.value = false
-    if (logPollTimer) {
-      clearInterval(logPollTimer)
-      logPollTimer = null
-    }
-  }
-})
-
-async function loadEngineStatus() {
-  try {
-    engineStatus.value = await getEngineStatus()
-  } catch {
-    // silent — engine not critical
-  }
-}
-
-async function toggleEngine() {
-  engineLoading.value = true
-  try {
-    if (engineStatus.value?.running) {
-      await stopEngine()
-    } else {
-      await startEngine()
-    }
-    await loadEngineStatus()
-    toast.value = { show: true, message: engineStatus.value?.running ? 'C++ Engine started' : 'C++ Engine stopped' }
-  } catch (e: any) {
-    toast.value = { show: true, message: e?.message || 'Failed to toggle C++ engine' }
-  } finally {
-    engineLoading.value = false
-  }
-}
-
-loadEngineStatus()
 
 function cppExtra(s: any): Record<string, any> {
   if (!s.signal_json) return {}
@@ -95,15 +26,6 @@ function cppExtra(s: any): Record<string, any> {
     if (e.rsi) out.RSI = e.rsi.toFixed(1)
     return out
   } catch { return {} }
-}
-
-function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = seconds % 60
-  if (h > 0) return `${h}h ${m}m ${s}s`
-  if (m > 0) return `${m}m ${s}s`
-  return `${s}s`
 }
 
 async function load() {
@@ -197,32 +119,6 @@ const nextScanFormatted = computed(() => {
           <BaseButton @click="runScan" :disabled="scanLoading">
             Run scan now
           </BaseButton>
-        </div>
-
-        <div class="engine-row">
-          <PulseIndicator :state="engineStatus?.running ? 'running' : 'stopped'" />
-          <span class="engine-label">C++ Signal Engine</span>
-          <span v-if="engineStatus?.pid" class="engine-pid mono">PID {{ engineStatus.pid }}</span>
-          <span v-if="engineStatus?.uptime_seconds" class="engine-uptime mono">{{ formatUptime(engineStatus.uptime_seconds) }}</span>
-          <div class="spacer"></div>
-          <BaseButton
-            :variant="engineStatus?.running ? 'warn' : 'primary'"
-            :disabled="engineLoading"
-            @click="toggleEngine"
-          >
-            {{ engineLoading ? '...' : engineStatus?.running ? 'Stop' : 'Start' }}
-          </BaseButton>
-        </div>
-
-        <div class="log-panel" v-if="engineStatus?.running">
-          <div class="log-header" @click="toggleLogs">
-            <span class="log-title">Engine Logs</span>
-            <span class="log-toggle">{{ showLogs ? 'Hide' : 'Show' }}</span>
-          </div>
-          <div v-if="showLogs" class="log-body" ref="logContainer">
-            <div v-if="logsLoading && logLines.length === 0" class="log-empty">Loading...</div>
-            <div v-for="(line, i) in logLines" :key="i" class="log-line mono">{{ line }}</div>
-          </div>
         </div>
 
         <div class="grid">
@@ -351,73 +247,6 @@ const nextScanFormatted = computed(() => {
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.015em;
-}
-.engine-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-.engine-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fg-2);
-}
-.engine-pid {
-  font-size: 12px;
-  color: var(--muted);
-}
-.engine-uptime {
-  font-size: 12px;
-  color: var(--muted);
-}
-.log-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.log-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 18px;
-  cursor: pointer;
-  user-select: none;
-}
-.log-header:hover { background: var(--surface-2); }
-.log-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--fg-2);
-}
-.log-toggle {
-  font-size: 12px;
-  color: var(--accent);
-  font-weight: 500;
-}
-.log-body {
-  max-height: 320px;
-  overflow-y: auto;
-  padding: 8px 18px 12px;
-  background: var(--surface-3);
-  border-top: 1px solid var(--border);
-}
-.log-empty {
-  font-size: 12px;
-  color: var(--muted);
-  text-align: center;
-  padding: 8px 0;
-}
-.log-line {
-  font-size: 11px;
-  line-height: 1.6;
-  color: var(--fg-2);
-  white-space: pre;
-  word-break: break-all;
 }
 .cpp-badge {
   font-size: 14px;

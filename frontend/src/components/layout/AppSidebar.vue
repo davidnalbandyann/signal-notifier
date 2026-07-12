@@ -25,6 +25,7 @@ const navItems = [
   { path: '/charts', label: 'Charts', icon: 'charts' },
   { path: '/history', label: 'History', icon: 'history' },
   { path: '/notifications', label: 'Notifications', icon: 'notifications' },
+  { path: '/engine', label: 'Engine', icon: 'engine' },
   { path: '/strategy', label: 'Strategy', icon: 'strategy' },
   { path: '/settings', label: 'Settings', icon: 'settings' },
 ]
@@ -91,6 +92,9 @@ async function runScan() {
           <template v-else-if="item.icon === 'strategy'">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
+          </template>
+          <template v-else-if="item.icon === 'engine'">
+            <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
           </template>
           <template v-else-if="item.icon === 'settings'">
             <circle cx="12" cy="12" r="3"/>

@@ -99,6 +99,29 @@ async def engine_logs():
     return {"lines": lines}
 
 
+@router.get("/signals")
+async def engine_signals():
+    """Return the last 50 analyses triggered by the C++ engine."""
+    db = get_db()
+    rows = db.execute(
+        "SELECT id, chart_name, timestamp, score, direction, entry, signal_json, sent "
+        "FROM analyses WHERE signal_json IS NOT NULL ORDER BY timestamp DESC LIMIT 50"
+    ).fetchall()
+    signals_list = []
+    for r in rows:
+        signals_list.append({
+            "id": r["id"],
+            "chart_name": r["chart_name"],
+            "timestamp": r["timestamp"],
+            "score": r["score"],
+            "direction": r["direction"],
+            "entry": r["entry"],
+            "sent": bool(r["sent"]),
+            "signal_json": r["signal_json"],
+        })
+    return {"signals": signals_list}
+
+
 @router.get("/status")
 async def engine_status(request: Request):
     """Return whether the C++ engine is running, its PID, uptime, and last signal from DB."""
