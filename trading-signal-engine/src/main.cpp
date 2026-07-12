@@ -4,9 +4,11 @@
 #include "strategy.h"
 #include "utils/json_helpers.h"
 
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
+#include <thread>
 #include <unordered_map>
 
 #include <nlohmann/json.hpp>
@@ -74,11 +76,12 @@ int main(int argc, char* argv[]) {
     source->start();
     spdlog::info("engine running, waiting for candles...");
 
+    auto last_heartbeat = std::chrono::steady_clock::now();
+    auto* ws = dynamic_cast<BinanceWebSocketSource*>(source.get());
+
     while (g_running) {
         OHLCV candle;
 
-        // waitForCandle is specific to BinanceWebSocketSource; use dynamic_cast
-        auto* ws = dynamic_cast<BinanceWebSocketSource*>(source.get());
         bool got = false;
         if (ws) {
             got = ws->waitForCandle(candle, 200);
@@ -93,6 +96,19 @@ int main(int argc, char* argv[]) {
 
             if (auto sig = strategy->checkSignal()) {
                 sender.send(*sig, timeframe);
+            }
+        } else {
+            // Heartbeat every 30s so the web dashboard shows the engine is alive
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_heartbeat).count();
+            if (elapsed >= 30) {
+                OHLCV latest = source->getLatestCandle("");
+                if (latest.timestamp > 0) {
+                    spdlog::info("heartbeat: connected, last price={} vol={}", latest.close, latest.volume);
+                } else {
+                    spdlog::info("heartbeat: connected, waiting for first candle...");
+                }
+                last_heartbeat = now;
             }
         }
     }
