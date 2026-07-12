@@ -1,15 +1,22 @@
+#include "binance_websocket_source.h"
+#include "data_source.h"
 #include "data_source_interface.h"
-#include "strategy_interface.h"
-#include "utils/circular_buffer.h"
 #include "utils/json_helpers.h"
+
+#include <csignal>
+#include <cstdlib>
+#include <iostream>
+#include <unordered_map>
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
 
-#include <iostream>
-#include <string>
-#include <unordered_map>
+static std::atomic<bool> g_running{true};
+
+static void handleSignal(int) {
+    g_running = false;
+    spdlog::warn("signal received, shutting down...");
+}
 
 static const std::unordered_map<std::string, spdlog::level::level_enum> LEVEL_MAP = {
     {"trace", spdlog::level::trace},
@@ -27,6 +34,9 @@ static spdlog::level::level_enum parseLevel(const std::string& s) {
 }
 
 int main(int argc, char* argv[]) {
+    std::signal(SIGINT, handleSignal);
+    std::signal(SIGTERM, handleSignal);
+
     const std::string config_path = (argc > 1) ? argv[1] : "config.json";
 
     nlohmann::json cfg;
@@ -44,28 +54,23 @@ int main(int argc, char* argv[]) {
 
     spdlog::info("config loaded: {}", config_path);
 
-    auto& ds = cfg["data_source"];
-    spdlog::info("data_source: type={} symbol={} timeframe={}",
-                 ds["type"].get<std::string>(),
-                 ds["symbol"].get<std::string>(),
-                 ds["timeframe"].get<std::string>());
+    auto source = std::make_unique<BinanceWebSocketSource>(
+        cfg["data_source"]["symbol"].get<std::string>(),
+        cfg["data_source"]["timeframe"].get<std::string>()
+    );
+    source->start();
 
-    auto& strat = cfg["strategy"];
-    spdlog::info("strategy: type={}", strat["type"].get<std::string>());
-    for (auto& [k, v] : strat["params"].items()) {
-        spdlog::info("  param {} = {}", k, v.dump());
+    spdlog::info("engine running, waiting for candles...");
+
+    while (g_running) {
+        OHLCV candle;
+        if (source->waitForCandle(candle, 200)) {
+            spdlog::info("main: {} close={} ts={}", candle.symbol, candle.close, candle.timestamp);
+        }
     }
 
-    auto& svc = cfg["python_service"];
-    spdlog::info("python_service: url={} timeout={}",
-                 svc["url"].get<std::string>(),
-                 svc["timeout_sec"].get<int>());
-
-    spdlog::info("engine initialized, waiting for data...");
-
-    CircularBuffer<OHLCV> buffer(5);
-    buffer.push({"BTCUSDT", 1000, 60000, 61000, 59000, 60500, 100.0});
-    spdlog::info("buffer size={} latest_close={}", buffer.size(), buffer.latest().close);
+    source->stop();
+    spdlog::info("engine stopped");
 
     return 0;
 }

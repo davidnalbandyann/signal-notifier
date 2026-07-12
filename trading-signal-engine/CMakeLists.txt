@@ -23,11 +23,24 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(spdlog)
 
-# --- Minimal M1 target (no WS / HTTP yet) ---
+# --- IXWebSocket (WebSocket client for Binance) ---
+FetchContent_Declare(
+    ixwebsocket
+    GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
+    GIT_TAG v11.4.5
+)
+set(USE_TLS ON CACHE BOOL "Enable TLS support for IXWebSocket")
+FetchContent_MakeAvailable(ixwebsocket)
+
+# --- M3 target ---
 add_executable(trading_signal_engine
     src/main.cpp
+    src/data_source.cpp
+    src/data_source.h
     src/data_source_interface.h
     src/strategy_interface.h
+    src/binance_websocket_source.cpp
+    src/binance_websocket_source.h
     src/utils/circular_buffer.h
     src/utils/json_helpers.h
 )
@@ -36,6 +49,7 @@ target_link_libraries(trading_signal_engine
     PRIVATE
     nlohmann_json::nlohmann_json
     spdlog::spdlog
+    ixwebsocket::ixwebsocket
 )
 
 target_include_directories(trading_signal_engine PRIVATE src)
