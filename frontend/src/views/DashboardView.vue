@@ -8,12 +8,51 @@ import ScoreBar from '@/components/ui/ScoreBar.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import Toast from '@/components/ui/Toast.vue'
 import { getStatus, triggerScan, pauseScan, resumeScan } from '@/api/dashboard'
+import { getEngineStatus, startEngine, stopEngine } from '@/api/cpp-engine'
 
 const loading = ref(true)
 const status = ref<Awaited<ReturnType<typeof getStatus>> | null>(null)
 const error = ref('')
 const toast = ref({ show: false, message: '' })
 const scanLoading = ref(false)
+const engineStatus = ref<Awaited<ReturnType<typeof getEngineStatus>> | null>(null)
+const engineLoading = ref(false)
+
+async function loadEngineStatus() {
+  try {
+    engineStatus.value = await getEngineStatus()
+  } catch {
+    // silent — engine not critical
+  }
+}
+
+async function toggleEngine() {
+  engineLoading.value = true
+  try {
+    if (engineStatus.value?.running) {
+      await stopEngine()
+    } else {
+      await startEngine()
+    }
+    await loadEngineStatus()
+    toast.value = { show: true, message: engineStatus.value?.running ? 'C++ Engine started' : 'C++ Engine stopped' }
+  } catch (e: any) {
+    toast.value = { show: true, message: e?.message || 'Failed to toggle C++ engine' }
+  } finally {
+    engineLoading.value = false
+  }
+}
+
+loadEngineStatus()
+
+function formatUptime(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  if (h > 0) return `${h}h ${m}m ${s}s`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
 
 async function load() {
   try {
@@ -105,6 +144,21 @@ const nextScanFormatted = computed(() => {
           </BaseButton>
           <BaseButton @click="runScan" :disabled="scanLoading">
             Run scan now
+          </BaseButton>
+        </div>
+
+        <div class="engine-row">
+          <PulseIndicator :state="engineStatus?.running ? 'running' : 'stopped'" />
+          <span class="engine-label">C++ Signal Engine</span>
+          <span v-if="engineStatus?.pid" class="engine-pid mono">PID {{ engineStatus.pid }}</span>
+          <span v-if="engineStatus?.uptime_seconds" class="engine-uptime mono">{{ formatUptime(engineStatus.uptime_seconds) }}</span>
+          <div class="spacer"></div>
+          <BaseButton
+            :variant="engineStatus?.running ? 'warn' : 'primary'"
+            :disabled="engineLoading"
+            @click="toggleEngine"
+          >
+            {{ engineLoading ? '...' : engineStatus?.running ? 'Stop' : 'Start' }}
           </BaseButton>
         </div>
 
@@ -230,6 +284,28 @@ const nextScanFormatted = computed(() => {
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.015em;
+}
+.engine-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.engine-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg-2);
+}
+.engine-pid {
+  font-size: 12px;
+  color: var(--muted);
+}
+.engine-uptime {
+  font-size: 12px;
+  color: var(--muted);
 }
 .grid {
   display: grid;

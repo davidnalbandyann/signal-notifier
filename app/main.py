@@ -45,6 +45,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
+    # Stop the C++ engine if running
+    from app.routes.cpp_engine import _stop_engine
+    await _stop_engine(app.state)
+
     await scheduler.stop()
     await browser.stop()
     close_db()
@@ -73,8 +77,10 @@ from app.routes.notifications import router as notifications_router
 from app.routes.settings import router as settings_router
 from app.routes.strategy import router as strategy_router
 from app.routes.trigger import router as trigger_router
+from app.routes.cpp_engine import router as cpp_engine_router
 
 app.include_router(auth_router)
+app.include_router(cpp_engine_router, dependencies=[Depends(get_current_user)])
 app.include_router(trigger_router)
 app.include_router(dashboard_router, dependencies=[Depends(get_current_user)])
 app.include_router(charts_router, dependencies=[Depends(get_current_user)])

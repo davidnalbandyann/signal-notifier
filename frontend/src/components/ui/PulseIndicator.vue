@@ -7,7 +7,7 @@ defineProps<{
 <template>
   <div :class="['pulse', state]">
     <span class="b"></span>
-    {{ state === 'running' ? 'Running' : state === 'paused' ? 'Paused' : 'Error' }}
+    {{ state === 'running' ? 'Running' : state === 'paused' ? 'Paused' : state === 'stopped' ? 'Stopped' : 'Error' }}
   </div>
 </template>
 
