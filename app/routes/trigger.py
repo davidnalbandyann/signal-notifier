@@ -112,7 +112,11 @@ async def trigger_signal(body: dict, request: Request):
     row = db.execute("SELECT value FROM settings WHERE key = ?", ("NOTIFICATION_THRESHOLD",)).fetchone()
     threshold = float(row["value"]) if row else settings.NOTIFICATION_THRESHOLD
 
-    sent = analysis.score >= threshold and analysis.direction.value != "NEUTRAL"
+    # Check if C++ bypass AI gate is enabled
+    bypass_row = db.execute("SELECT value FROM settings WHERE key = ?", ("CPP_BYPASS_AI",)).fetchone()
+    cpp_bypass = bypass_row and bypass_row["value"].lower() in ("true", "1", "yes")
+
+    sent = cpp_bypass or (analysis.score >= threshold and analysis.direction.value != "NEUTRAL")
 
     # Persist to DB (mirrors scheduler._process_chart)
     now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()

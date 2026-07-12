@@ -204,6 +204,16 @@ function toggleShow(field: 'token' | 'apiKey') {
                   </label>
                 </div>
               </div>
+              <div class="field">
+                <div class="lbl"><div class="k">C++ bypass AI gate</div><div class="h">When enabled, C++ engine signals always trigger a notification regardless of AI score.</div></div>
+                <div class="ctrl">
+                  <label class="toggle">
+                    <input type="checkbox" :checked="!!settings.CPP_BYPASS_AI" @change="updateBoolField('CPP_BYPASS_AI', $event)" />
+                    <span class="sw"></span>
+                    <span class="tl">Enabled</span>
+                  </label>
+                </div>
+              </div>
             </div>
             <div class="group-foot">
               <span style="color:var(--muted); font-size:12px">Current threshold: {{ (settings.NOTIFICATION_THRESHOLD || 5).toFixed(1) }}</span>
