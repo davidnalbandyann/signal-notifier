@@ -18,6 +18,12 @@ EDITABLE_KEYS = {
     "BROWSER_RETRY_DELAY",
     "TELEGRAM_TOKEN",
     "TELEGRAM_CHAT_ID",
+    "TELEGRAM_SEND_SCREENSHOT",
+    "TELEGRAM_QUIET_START",
+    "TELEGRAM_QUIET_END",
+    "NOTIFY_LONG",
+    "NOTIFY_SHORT",
+    "NOTIFY_NEUTRAL",
     "URLS_FILE",
 }
 
@@ -55,6 +61,8 @@ async def update_settings(body: dict):
 
 SECRET_KEYS = {"TELEGRAM_TOKEN", "NVIDIA_API_KEY"}
 
+BOOLEAN_KEYS = {"HEADLESS", "TELEGRAM_SEND_SCREENSHOT", "NOTIFY_LONG", "NOTIFY_SHORT", "NOTIFY_NEUTRAL"}
+
 
 def _mask_value(key: str, val):
     if key in SECRET_KEYS and isinstance(val, str) and len(val) > 4:
@@ -63,9 +71,8 @@ def _mask_value(key: str, val):
 
 
 def _cast_value(key: str, val: str):
-    bool_keys = {"HEADLESS"}
     float_keys = {"NOTIFICATION_THRESHOLD", "AI_CALL_DELAY"}
-    if key in bool_keys:
+    if key in BOOLEAN_KEYS:
         return val.lower() in ("true", "1", "yes")
     if key in float_keys:
         try:

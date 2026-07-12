@@ -49,7 +49,7 @@ async def list_analyses(
 
     offset = (page - 1) * page_size
     rows = db.execute(
-        f"SELECT * FROM analyses WHERE {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+        f"SELECT a.*, (SELECT n.id FROM notifications n WHERE n.analysis_id = a.id ORDER BY n.id DESC LIMIT 1) AS notification_id FROM analyses a WHERE {where} ORDER BY a.timestamp DESC LIMIT ? OFFSET ?",
         params + [page_size, offset],
     ).fetchall()
 
@@ -63,7 +63,7 @@ async def list_analyses(
 async def get_analysis(analysis_id: int):
     db = get_db()
     row = db.execute(
-        "SELECT * FROM analyses WHERE id = ?", (analysis_id,)
+        "SELECT a.*, (SELECT n.id FROM notifications n WHERE n.analysis_id = a.id ORDER BY n.id DESC LIMIT 1) AS notification_id FROM analyses a WHERE a.id = ?", (analysis_id,)
     ).fetchone()
     if not row:
         return {}
@@ -118,4 +118,6 @@ def _analysis_row(r) -> dict:
     has_screenshot = r["screenshot"] if "screenshot" in r.keys() else None
     if has_screenshot:
         data["screenshot_url"] = f"/api/analyses/{r['id']}/screenshot"
+    if "notification_id" in r.keys() and r["notification_id"] is not None:
+        data["notification_id"] = r["notification_id"]
     return data
