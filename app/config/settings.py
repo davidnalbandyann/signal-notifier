@@ -36,6 +36,8 @@ class Settings(BaseSettings):
 
     URLS_FILE: str = "urls.yaml"
 
+    TRIGGER_TOKEN: str = ""
+
     REQUIRED_ENVVARS: ClassVar[list[str]] = [
         "TELEGRAM_TOKEN",
         "TELEGRAM_CHAT_ID",

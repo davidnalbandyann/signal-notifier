@@ -72,8 +72,10 @@ from app.routes.analyses import router as analyses_router
 from app.routes.notifications import router as notifications_router
 from app.routes.settings import router as settings_router
 from app.routes.strategy import router as strategy_router
+from app.routes.trigger import router as trigger_router
 
 app.include_router(auth_router)
+app.include_router(trigger_router)
 app.include_router(dashboard_router, dependencies=[Depends(get_current_user)])
 app.include_router(charts_router, dependencies=[Depends(get_current_user)])
 app.include_router(analyses_router, dependencies=[Depends(get_current_user)])
