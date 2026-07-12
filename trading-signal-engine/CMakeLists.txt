@@ -32,13 +32,17 @@ FetchContent_Declare(
 set(USE_TLS ON CACHE BOOL "Enable TLS support for IXWebSocket")
 FetchContent_MakeAvailable(ixwebsocket)
 
-# --- M3 target ---
+# --- M4 target ---
 add_executable(trading_signal_engine
     src/main.cpp
     src/data_source.cpp
     src/data_source.h
     src/data_source_interface.h
+    src/strategy.cpp
+    src/strategy.h
     src/strategy_interface.h
+    src/bollinger_squeeze_breakout.cpp
+    src/bollinger_squeeze_breakout.h
     src/binance_websocket_source.cpp
     src/binance_websocket_source.h
     src/utils/circular_buffer.h
@@ -53,3 +57,25 @@ target_link_libraries(trading_signal_engine
 )
 
 target_include_directories(trading_signal_engine PRIVATE src)
+
+# --- Strategy test harness (optional) ---
+option(BUILD_TEST_STRATEGY "Build strategy unit test" OFF)
+if(BUILD_TEST_STRATEGY)
+    add_executable(test_strategy
+        src/test_strategy.cpp
+        src/bollinger_squeeze_breakout.cpp
+        src/bollinger_squeeze_breakout.h
+        src/strategy_interface.h
+        src/utils/circular_buffer.h
+    )
+    target_link_libraries(test_strategy
+        PRIVATE
+        nlohmann_json::nlohmann_json
+        spdlog::spdlog
+    )
+    target_include_directories(test_strategy PRIVATE src)
+    add_custom_target(run_test_strategy
+        COMMAND $<TARGET_FILE:test_strategy>
+        DEPENDS test_strategy
+    )
+endif()
