@@ -1,0 +1,5 @@
+charts:
+  - name: "BTC/USD 15m"
+    url: "https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT&interval=15"
+  - name: "ETH/USD 1h"
+    url: "https://www.tradingview.com/chart/?symbol=BINANCE:ETHUSDT&interval=60"
