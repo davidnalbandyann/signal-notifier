@@ -124,6 +124,13 @@ async def trigger_signal(body: dict, request: Request):
             analysis.entry = str(entry_price)
         if not analysis.reason or analysis.reason == "Analysis failed due to an error":
             analysis.reason = f"C++ triggered {direction.upper()} signal @ {entry_price}"
+        bw = float(extra.get("bandwidth", 0.03))
+        vr = float(extra.get("volume_ratio", 1.5))
+        rsi = float(extra.get("rsi", 50))
+        score = (1 - min(bw, 0.03) / 0.03) * 3 \
+              + (min(vr, 4.0) / 1.5 - 1) * 3 \
+              + max(0.0, (rsi - 50) / 30) * 4
+        analysis.score = round(min(10.0, max(0.0, score)), 1)
 
     sent = cpp_bypass or (analysis.score >= threshold and analysis.direction.value != "NEUTRAL")
 
