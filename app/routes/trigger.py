@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.config.settings import Settings
 from app.database import get_db
+from app.models.schemas import Direction
 from app.state import set_last_scan
 
 logger = structlog.get_logger(__name__)
@@ -115,6 +116,14 @@ async def trigger_signal(body: dict, request: Request):
     # Check if C++ bypass AI gate is enabled
     bypass_row = db.execute("SELECT value FROM settings WHERE key = ?", ("CPP_BYPASS_AI",)).fetchone()
     cpp_bypass = bypass_row and bypass_row["value"].lower() in ("true", "1", "yes")
+
+    if cpp_bypass:
+        if direction.upper() in ("LONG", "SHORT", "NEUTRAL"):
+            analysis.direction = Direction(direction.upper())
+        if entry_price:
+            analysis.entry = str(entry_price)
+        if not analysis.reason or analysis.reason == "Analysis failed due to an error":
+            analysis.reason = f"C++ triggered {direction.upper()} signal @ {entry_price}"
 
     sent = cpp_bypass or (analysis.score >= threshold and analysis.direction.value != "NEUTRAL")
 
