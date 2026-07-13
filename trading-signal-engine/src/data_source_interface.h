@@ -22,4 +22,5 @@ public:
     virtual void stop() = 0;
     virtual OHLCV getLatestCandle(const std::string& symbol) = 0;
     virtual void setOnCandle(std::function<void(const OHLCV&)>) = 0;
+    virtual bool pollCandle(OHLCV& out) = 0;
 };

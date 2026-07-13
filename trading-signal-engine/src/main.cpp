@@ -1,4 +1,3 @@
-#include "binance_websocket_source.h"
 #include "data_source.h"
 #include "signal_sender.h"
 #include "strategy.h"
@@ -74,43 +73,19 @@ int main(int argc, char* argv[]) {
     std::string timeframe = cfg["data_source"].value("timeframe", std::string("15m"));
 
     source->start();
-    spdlog::info("engine running, waiting for candles...");
-
-    auto last_heartbeat = std::chrono::steady_clock::now();
-    auto* ws = dynamic_cast<BinanceWebSocketSource*>(source.get());
+    spdlog::info("engine running...");
 
     while (g_running) {
         OHLCV candle;
-
-        bool got = false;
-        if (ws) {
-            got = ws->waitForCandle(candle, 200);
-        } else {
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        }
-
-        if (!g_running) break;
-
-        if (got) {
+        if (source->pollCandle(candle)) {
+            spdlog::info("candle: {} close={} ts={} vol={}",
+                         candle.symbol, candle.close, candle.timestamp, candle.volume);
             strategy->onCandle(candle);
-
             if (auto sig = strategy->checkSignal()) {
                 sender.send(*sig, timeframe);
             }
-        } else {
-            // Heartbeat every 30s so the web dashboard shows the engine is alive
-            auto now = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - last_heartbeat).count();
-            if (elapsed >= 30) {
-                OHLCV latest = source->getLatestCandle("");
-                if (latest.timestamp > 0) {
-                    spdlog::info("heartbeat: connected, last price={} vol={}", latest.close, latest.volume);
-                } else {
-                    spdlog::info("heartbeat: connected, waiting for first candle...");
-                }
-                last_heartbeat = now;
-            }
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     source->stop();

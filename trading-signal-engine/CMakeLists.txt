@@ -23,15 +23,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(spdlog)
 
-# --- IXWebSocket (WebSocket client for Binance) ---
-FetchContent_Declare(
-    ixwebsocket
-    GIT_REPOSITORY https://github.com/machinezone/IXWebSocket.git
-    GIT_TAG v11.4.5
-)
-set(USE_TLS ON CACHE BOOL "Enable TLS support for IXWebSocket")
-FetchContent_MakeAvailable(ixwebsocket)
-
 # --- cpr (HTTP client) ---
 find_package(CURL REQUIRED)
 FetchContent_Declare(
@@ -52,8 +43,8 @@ add_executable(trading_signal_engine
     src/strategy_interface.h
     src/bollinger_squeeze_breakout.cpp
     src/bollinger_squeeze_breakout.h
-    src/binance_websocket_source.cpp
-    src/binance_websocket_source.h
+    src/binance_rest_source.cpp
+    src/binance_rest_source.h
     src/signal_sender.cpp
     src/signal_sender.h
     src/utils/circular_buffer.h
@@ -64,7 +55,6 @@ target_link_libraries(trading_signal_engine
     PRIVATE
     nlohmann_json::nlohmann_json
     spdlog::spdlog
-    ixwebsocket::ixwebsocket
     cpr::cpr
 )
 
