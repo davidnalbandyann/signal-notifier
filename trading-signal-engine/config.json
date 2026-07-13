@@ -20,7 +20,7 @@
   },
   "python_service": {
     "url": "http://127.0.0.1:8000/trigger",
-    "timeout_sec": 2,
+    "timeout_sec": 35,
     "auth_token": ""
   },
   "logging": {
