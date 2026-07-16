@@ -29,7 +29,7 @@ private:
 
     std::queue<OHLCV> warm_start_;
     std::queue<OHLCV> live_queue_;
-    uint64_t last_processed_close_time_{0};
+    uint64_t last_processed_open_time_{0};
     OHLCV latest_{};
     bool latest_valid_{false};
 

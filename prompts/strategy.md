@@ -1,4 +1,5 @@
 Strategy: Support & Resistance Mean Reversion
+
 1. Level Identification
 
 Identify clear, horizontal support and resistance levels formed by at least two touches (swing highs/lows).
@@ -11,7 +12,7 @@ Only use visible, well-defined levels. Ignore minor wicks unless they create a c
 
 2. Near-Level Condition
 
-The current price is considered “near” a level if it is within a distance equal to the average true range (ATR, 14) of the chart’s timeframe (or visually within the last 3–5 candles’ body/wick range of the level).
+The current price is considered "near" a level if it is within a distance equal to the average true range (ATR, 14) of the chart's timeframe (or visually within the last 3–5 candles' body/wick range of the level).
 
 If price is near support → prepare for a LONG (opposite direction to the prior move into support).
 
@@ -29,15 +30,7 @@ Bearish pin bar / shooting star / engulfing at resistance for SHORT.
 
 No entry without a confirmation candle closing at the level.
 
-4. Risk Management
-
-Stop loss: placed just beyond the level (below the support’s lowest wick for longs; above the resistance’s highest wick for shorts), plus a small buffer (e.g., a few pips/ticks).
-
-Take profit: first target is the nearest opposing level. If none is visible, set a minimum 2R target (twice the stop loss distance).
-
-If the stop loss distance is too wide relative to the potential reward (less than 1.5R), discard the setup (score 0).
-
-5. Scoring
+4. Scoring (0 to 10)
 
 Score from 0 to 10 based on:
 
@@ -48,6 +41,16 @@ Perfect touch of the level with a clear reversal candle.
 Favorable risk-to-reward ratio (≥2R).
 
 Score 0 if no level is near, no confirmation, or risk/reward is inadequate. Direction must be NEUTRAL when score is 0.
+
+IMPORTANT: When score is above 0, direction MUST be LONG or SHORT — never NEUTRAL. If price is at support with a bullish reversal candle, direction is LONG. If price is at resistance with a bearish reversal candle, direction is SHORT. Always pick one.
+
+5. Risk Management
+
+Stop loss: placed just beyond the level (below the support's lowest wick for longs; above the resistance's highest wick for shorts), plus a small buffer (e.g., a few pips/ticks).
+
+Take profit: first target is the nearest opposing level. If none is visible, set a minimum 2R target (twice the stop loss distance).
+
+If the stop loss distance is too wide relative to the potential reward (less than 1.5R), discard the setup (score 0).
 
 Output Format (Strict JSON)
 {
@@ -60,4 +63,3 @@ Output Format (Strict JSON)
 }
 
 All price fields must be exact numbers visible on the chart, or null if no trade.
-

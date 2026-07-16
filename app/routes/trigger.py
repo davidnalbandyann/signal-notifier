@@ -31,7 +31,7 @@ def _resolve_chart(symbol: str, timeframe: str) -> tuple[str, str]:
     if row:
         return row["name"], row["url"]
 
-    # Fallback: construct a TradingView URL
+    # Fallback: construct a TradingView URL with Bollinger Bands
     interval = TV_INTERVAL.get(timeframe, "15")
     name = symbol
     url = f"https://www.tradingview.com/chart/?symbol=BINANCE:{symbol}&interval={interval}"

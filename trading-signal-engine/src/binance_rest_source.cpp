@@ -56,18 +56,15 @@ void BinanceRestSource::fetchAndEnqueue(int limit, uint64_t end_time) {
         for (auto& entry : j) {
             if (!entry.is_array() || entry.size() < 7) continue;
 
-            uint64_t close_time = entry[6].get<uint64_t>();
-            if (close_time <= last_processed_close_time_) continue;
+            uint64_t open_time = entry[0].get<uint64_t>();
+            if (open_time <= last_processed_open_time_) continue;
 
             OHLCV candle = parseKline(entry);
             live_queue_.push(candle);
             latest_ = candle;
             latest_valid_ = true;
 
-            // Track the close time of the last kline in each batch
-            if (close_time > last_processed_close_time_) {
-                last_processed_close_time_ = close_time;
-            }
+            last_processed_open_time_ = open_time;
         }
     } catch (const std::exception& e) {
         spdlog::error("klines fetch failed: {}", e.what());
@@ -88,7 +85,7 @@ void BinanceRestSource::start() {
                     warm_start_.push(parseKline(entry));
                 }
                 if (!j.empty()) {
-                    last_processed_close_time_ = j.back()[6].get<uint64_t>();
+                    last_processed_open_time_ = j.back()[0].get<uint64_t>();
                 }
                 spdlog::info("warm-start: loaded {} klines", warm_start_.size());
             }
