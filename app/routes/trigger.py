@@ -166,12 +166,11 @@ async def trigger_signal(body: dict, request: Request):
 
     if sent:
         extra_caption = _signal_caption(body)
-        await telegram.notify(name, analysis, screenshot or None, extra_caption=extra_caption)
+        caption = await telegram.notify(name, analysis, screenshot or None, extra_caption=extra_caption, timeframe=timeframe, analysis_id=analysis_id)
         db.execute(
             "INSERT INTO notifications (analysis_id, chart_name, timestamp, score, direction, status, caption) "
             "VALUES (?, ?, ?, ?, ?, 'sent', ?)",
-            (analysis_id, name, now, analysis.score, analysis.direction.value,
-             f"{extra_caption}Score: {analysis.score}/10 - {analysis.direction.value}"),
+            (analysis_id, name, now, analysis.score, analysis.direction.value, caption),
         )
 
     db.commit()

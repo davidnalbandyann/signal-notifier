@@ -130,12 +130,11 @@ async def resend_analysis(analysis_id: int, request: Request):
     )
 
     try:
-        await telegram.notify(row["chart_name"], analysis, screenshot_bytes)
+        caption = await telegram.notify(row["chart_name"], analysis, screenshot_bytes, analysis_id=analysis_id)
     except Exception as e:
         logger.error("resend_failed", analysis_id=analysis_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Failed to resend: {e}")
 
-    caption = _format_caption_text(row["chart_name"], analysis)
     db.execute(
         "INSERT INTO notifications (analysis_id, chart_name, timestamp, score, direction, status, caption) "
         "VALUES (?, ?, datetime('now'), ?, ?, 'resent', ?)",
@@ -198,29 +197,6 @@ def _load_screenshot_bytes(row) -> bytes | None:
         return base64.b64decode(screenshot_val)
     except Exception:
         return None
-
-
-def _format_caption_text(name: str, analysis) -> str:
-    prefix = (
-        f"<b>{name}</b>\n\n"
-        f"Score: <b>{analysis.score}/10</b>\n"
-        f"Direction: <b>{analysis.direction.value}</b>\n\n"
-    )
-    suffix_parts = []
-    if analysis.entry:
-        suffix_parts.append(f"Entry: {analysis.entry}")
-    if analysis.stop_loss:
-        suffix_parts.append(f"Stop Loss: {analysis.stop_loss}")
-    if analysis.take_profit:
-        suffix_parts.append(f"Take Profit: {analysis.take_profit}")
-    suffix = "\n".join(suffix_parts)
-    if suffix:
-        suffix = "\n" + suffix
-    reason = analysis.reason
-    max_reason_len = 1024 - len(prefix) - len(suffix) - 1
-    if max_reason_len > 0 and len(reason) > max_reason_len:
-        reason = reason[:max_reason_len - 3] + "..."
-    return f"{prefix}Reason: {reason}{suffix}"
 
 
 def _analysis_row(r) -> dict:

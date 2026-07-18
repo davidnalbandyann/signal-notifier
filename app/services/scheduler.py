@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import re
 import structlog
 import time
 import yaml
@@ -154,8 +155,8 @@ class SchedulerService:
         analysis_id = cur.lastrowid
 
         if sent:
-            await self.telegram.notify(chart.name, analysis, screenshot)
-            caption = self._format_caption_text(chart.name, analysis)
+            timeframe = _extract_timeframe(chart.url)
+            caption = await self.telegram.notify(chart.name, analysis, screenshot, timeframe=timeframe, analysis_id=analysis_id)
             db.execute(
                 "INSERT INTO notifications (analysis_id, chart_name, timestamp, score, direction, status, caption) "
                 "VALUES (?, ?, ?, ?, ?, 'sent', ?)",
@@ -171,24 +172,17 @@ class SchedulerService:
 
         db.commit()
 
-    def _format_caption_text(self, name: str, analysis) -> str:
-        prefix = (
-            f"<b>{name}</b>\n\n"
-            f"Score: <b>{analysis.score}/10</b>\n"
-            f"Direction: <b>{analysis.direction.value}</b>\n\n"
-        )
-        suffix_parts = []
-        if analysis.entry:
-            suffix_parts.append(f"Entry: {analysis.entry}")
-        if analysis.stop_loss:
-            suffix_parts.append(f"Stop Loss: {analysis.stop_loss}")
-        if analysis.take_profit:
-            suffix_parts.append(f"Take Profit: {analysis.take_profit}")
-        suffix = "\n".join(suffix_parts)
-        if suffix:
-            suffix = "\n" + suffix
-        reason = analysis.reason
-        max_reason_len = 1024 - len(prefix) - len(suffix) - 1
-        if len(reason) > max_reason_len:
-            reason = reason[:max_reason_len - 3] + "..."
-        return f"{prefix}Reason: {reason}{suffix}"
+
+TV_INTERVAL_MAP = {
+    "1": "1m", "5": "5m", "15": "15m", "30": "30m",
+    "60": "1h", "120": "2h", "240": "4h",
+    "1D": "1d", "1W": "1w", "1M": "1M",
+}
+
+
+def _extract_timeframe(url: str) -> str:
+    m = re.search(r"[?&]interval=(\w+)", url)
+    if m:
+        raw = m.group(1)
+        return TV_INTERVAL_MAP.get(raw, raw)
+    return ""

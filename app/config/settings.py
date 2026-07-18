@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     TELEGRAM_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+    DASHBOARD_BASE_URL: str = ""
 
     NVIDIA_API_KEY: str = ""
     NVIDIA_MODEL: str = "minimaxai/minimax-m3"
