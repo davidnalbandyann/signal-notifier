@@ -51,7 +51,7 @@ jobs:
 
       - name: Build C++ engine
         run: |
-          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "if [ -d /home/tcm/trading-notifier/trading-signal-engine/build ]; then su - tcm -c 'cd /home/tcm/trading-notifier && cmake --build trading-signal-engine/build -j\$(nproc)'; fi"
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "su - tcm -c 'cd /home/tcm/trading-notifier && cmake -S trading-signal-engine -B trading-signal-engine/build -DCMAKE_BUILD_TYPE=Release && cmake --build trading-signal-engine/build -j\$(nproc)'"
 
       - name: Restart services
         run: |
