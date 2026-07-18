@@ -1,0 +1,85 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-vps
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SSH key
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ vars.VPS_HOST || '91.98.31.30' }} >> ~/.ssh/known_hosts
+
+      - name: Rsync code to VPS
+        run: |
+          rsync -az --delete \
+            --exclude '.env' \
+            --exclude '.venv' \
+            --exclude '.git' \
+            --exclude 'node_modules' \
+            --exclude 'frontend/dist' \
+            --exclude 'tcm.db*' \
+            --exclude '__pycache__' \
+            --exclude '*.pyc' \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            ./ root@${{ vars.VPS_HOST || '91.98.31.30' }}:/home/tcm/trading-notifier/
+
+      - name: Build & restart on VPS
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} <<'REMOTE'
+            set -e
+
+            echo "--- Installing Python deps ---"
+            su - tcm -c "
+              cd /home/tcm/trading-notifier
+              source .venv/bin/activate
+              pip install -q -r requirements.txt
+            "
+
+            echo "--- Building frontend ---"
+            su - tcm -c "
+              cd /home/tcm/trading-notifier/frontend
+              npm install --silent
+              npm run build
+            "
+
+            echo "--- Building C++ engine ---"
+            if [ -d /home/tcm/trading-notifier/trading-signal-engine/build ]; then
+              su - tcm -c "
+                cd /home/tcm/trading-notifier
+                cmake --build trading-signal-engine/build -j\$(nproc)
+              "
+            else
+              echo "C++ engine build dir missing, skipping"
+            fi
+
+            echo "--- Restarting services ---"
+            systemctl daemon-reload
+            systemctl restart trading-notifier-api
+            sleep 2
+            systemctl restart trading-notifier-engine
+
+            echo "--- Health check ---"
+            sleep 3
+            curl -sf http://127.0.0.1:8000/health && echo "Health: OK" || echo "Health: FAILED"
+            systemctl is-active --quiet trading-notifier-api && echo "API: active" || echo "API: FAILED"
+            systemctl is-active --quiet trading-notifier-engine && echo "Engine: active" || echo "Engine: FAILED"
+          REMOTE
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

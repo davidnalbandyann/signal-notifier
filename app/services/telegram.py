@@ -19,20 +19,27 @@ class TelegramService:
         self._chat_id = settings.TELEGRAM_CHAT_ID
 
     async def notify(
-        self, name: str, analysis: AnalysisResult, screenshot: bytes,
+        self, name: str, analysis: AnalysisResult, screenshot: bytes | None,
         extra_caption: str | None = None,
     ) -> None:
         caption = self._build_caption(name, analysis, extra_caption)
-        photo = BytesIO(screenshot)
-        photo.name = "chart.png"
 
         try:
-            await self._bot.send_photo(
-                chat_id=self._chat_id,
-                photo=photo,
-                caption=caption,
-                parse_mode="HTML",
-            )
+            if screenshot:
+                photo = BytesIO(screenshot)
+                photo.name = "chart.png"
+                await self._bot.send_photo(
+                    chat_id=self._chat_id,
+                    photo=photo,
+                    caption=caption,
+                    parse_mode="HTML",
+                )
+            else:
+                await self._bot.send_message(
+                    chat_id=self._chat_id,
+                    text=caption,
+                    parse_mode="HTML",
+                )
             logger.info(
                 "notification_sent",
                 chart=name,
