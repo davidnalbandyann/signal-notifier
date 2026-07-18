@@ -12,9 +12,11 @@ import {
   getEngineStatus, startEngine, stopEngine, getEngineLogs,
 } from '@/api/cpp-engine'
 import { useToast } from '@/composables/useToast'
+import { useTimezone } from '@/composables/useTimezone'
 import type { CppEngineStatus } from '@/types'
 
 const toast = useToast()
+const { formatTime } = useTimezone()
 const status = ref<CppEngineStatus | null>(null)
 const loading = ref(true)
 const engineLoading = ref(false)
@@ -150,7 +152,7 @@ loadSignals()
             <span v-if="lastSignal.entry" class="ls-entry mono">@ {{ lastSignal.entry }}</span>
             <span class="ls-sep">·</span>
             <span class="ls-score mono">score {{ lastSignal.score }}</span>
-            <span class="ls-time mono">{{ new Date(lastSignal.timestamp).toLocaleTimeString() }}</span>
+            <span class="ls-time mono">{{ formatTime(lastSignal.timestamp) }}</span>
           </div>
         </section>
 
@@ -205,7 +207,7 @@ loadSignals()
               <span class="c-num mono">{{ cppExtra(s)[2] }}</span>
               <span class="c-entry mono">{{ s.entry || '—' }}</span>
               <span class="c-num mono" :class="s.score >= 7 ? 'high' : s.score >= 5 ? 'mid' : 'low'">{{ s.score.toFixed(1) }}</span>
-              <span class="c-time mono">{{ new Date(s.timestamp).toLocaleTimeString() }}</span>
+              <span class="c-time mono">{{ formatTime(s.timestamp) }}</span>
               <span class="c-status"><BaseChip :status="s.sent ? 'sent' : 'fail'">{{ s.sent ? 'SENT' : 'FAILED' }}</BaseChip></span>
             </div>
           </div>

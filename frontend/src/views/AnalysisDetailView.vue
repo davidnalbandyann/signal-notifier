@@ -11,11 +11,13 @@ import AppToast from '@/components/ui/AppToast.vue'
 import AppLoading from '@/components/ui/AppLoading.vue'
 import { getAnalysis, getScreenshot, resendNotification, reanalyze, deleteAnalysis } from '@/api/analyses'
 import { useToast } from '@/composables/useToast'
+import { useTimezone } from '@/composables/useTimezone'
 import type { Analysis } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+const { formatFull } = useTimezone()
 const id = Number(route.params.id)
 
 const analysis = ref<Analysis | null>(null)
@@ -58,11 +60,7 @@ async function handleDelete() {
 }
 
 function fmtFull(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString([], {
-    year: 'numeric', month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-  })
+  return formatFull(iso)
 }
 </script>
 

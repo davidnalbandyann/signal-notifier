@@ -6,6 +6,7 @@
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
+#include <ctime>
 #include <iostream>
 #include <thread>
 #include <unordered_map>
@@ -52,6 +53,15 @@ int main(int argc, char* argv[]) {
 
     auto& log_cfg = cfg["logging"];
     auto level = parseLevel(log_cfg.value("level", std::string("info")));
+
+    // Set timezone for log timestamps (uses TZ env var + localtime)
+    std::string tz = log_cfg.value("timezone", std::string());
+    if (!tz.empty()) {
+        setenv("TZ", tz.c_str(), 1);
+        tzset();
+        spdlog::debug("timezone set: {}", tz);
+    }
+
     spdlog::set_level(level);
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%^%l%$] %v");
 

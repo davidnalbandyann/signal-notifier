@@ -26,6 +26,7 @@ EDITABLE_KEYS = {
     "NOTIFY_NEUTRAL",
     "CPP_BYPASS_AI",
     "URLS_FILE",
+    "DISPLAY_TIMEZONE",
 }
 
 
@@ -47,7 +48,9 @@ async def get_settings(request: Request):
 
 
 @router.put("")
-async def update_settings(body: dict):
+async def update_settings(body: dict, request: Request):
+    from app.utils import validate_timezone
+
     db = get_db()
     for key, value in body.items():
         if key not in EDITABLE_KEYS:
@@ -55,13 +58,39 @@ async def update_settings(body: dict):
         str_val = str(value)
         if key in SECRET_KEYS and _is_masked(str_val):
             continue
+        if key == "DISPLAY_TIMEZONE" and str_val and not validate_timezone(str_val):
+            continue
         db.execute(
             "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) "
             "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
             (key, str_val),
         )
     db.commit()
+
+    if "DISPLAY_TIMEZONE" in body:
+        _sync_config_timezone(request)
+
     return {"ok": True}
+
+
+def _sync_config_timezone(request: Request) -> None:
+    import json
+    from pathlib import Path
+    from app.utils import get_display_timezone
+
+    settings = getattr(request.app.state, "_settings", None)
+    if not settings:
+        return
+    config_path = Path(settings.CPP_ENGINE_CONFIG)
+    if not config_path.exists():
+        return
+    tz = get_display_timezone()
+    try:
+        cfg = json.loads(config_path.read_text())
+        cfg.setdefault("logging", {})["timezone"] = tz
+        config_path.write_text(json.dumps(cfg, indent=2) + "\n")
+    except Exception:
+        pass
 
 
 SECRET_KEYS = {"TELEGRAM_TOKEN", "NVIDIA_API_KEY"}

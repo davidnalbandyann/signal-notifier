@@ -12,9 +12,11 @@ import AppLoading from '@/components/ui/AppLoading.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { getStatus, triggerScan, pauseScan, resumeScan } from '@/api/dashboard'
 import { useToast } from '@/composables/useToast'
+import { useTimezone } from '@/composables/useTimezone'
 import type { DashboardStatus } from '@/types'
 
 const toast = useToast()
+const { formatTime, formatDate, isSameDay } = useTimezone()
 const status = ref<DashboardStatus | null>(null)
 const loading = ref(true)
 const actionLoading = ref<null | 'scan' | 'pause'>(null)
@@ -85,12 +87,9 @@ const progressPct = computed(() => {
 })
 
 function fmtTime(iso: string) {
-  const d = new Date(iso)
-  const now = new Date()
-  const sameDay = d.toDateString() === now.toDateString()
-  if (sameDay) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' · ' +
-    d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const now = new Date().toISOString()
+  if (isSameDay(iso, now)) return formatTime(iso)
+  return formatDate(iso, { month: 'short', day: 'numeric' }) + ' · ' + formatTime(iso)
 }
 
 onMounted(() => {

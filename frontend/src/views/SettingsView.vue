@@ -9,19 +9,22 @@ import AppLoading from '@/components/ui/AppLoading.vue'
 import { getSettings, updateSettings } from '@/api/settings'
 import { getStatus, pauseScan, resumeScan, triggerScan } from '@/api/dashboard'
 import { useToast } from '@/composables/useToast'
+import { useTimezone } from '@/composables/useTimezone'
 import type { Settings } from '@/types'
 
 const toast = useToast()
+const { tz, setTimezone } = useTimezone()
 const settings = ref<Settings>({})
 const loading = ref(true)
 const saving = ref<string | null>(null)
 const scanRunning = ref(false)
 const scanLoading = ref(false)
-const activeSection = ref('timing')
+const activeSection = ref('general')
 const showToken = ref(false)
 const showApiKey = ref(false)
 
 const sections = [
+  { id: 'general', label: 'General', icon: 'settings' },
   { id: 'timing', label: 'Scan timing', icon: 'clock' },
   { id: 'threshold', label: 'Threshold', icon: 'filter' },
   { id: 'browser', label: 'Browser', icon: 'image' },
@@ -29,9 +32,32 @@ const sections = [
   { id: 'telegram', label: 'Telegram', icon: 'external' },
 ]
 
+const COMMON_TZ = [
+  { value: 'UTC', label: 'UTC' },
+  { value: 'Asia/Yerevan', label: 'Yerevan (UTC+4)' },
+  { value: 'Europe/London', label: 'London (UTC+0/+1)' },
+  { value: 'Europe/Berlin', label: 'Berlin (UTC+1/+2)' },
+  { value: 'Europe/Moscow', label: 'Moscow (UTC+3)' },
+  { value: 'Asia/Dubai', label: 'Dubai (UTC+4)' },
+  { value: 'Asia/Calcutta', label: 'New Delhi (UTC+5:30)' },
+  { value: 'Asia/Bangkok', label: 'Bangkok (UTC+7)' },
+  { value: 'Asia/Shanghai', label: 'Shanghai (UTC+8)' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (UTC+9)' },
+  { value: 'Australia/Sydney', label: 'Sydney (UTC+10/+11)' },
+  { value: 'Pacific/Auckland', label: 'Auckland (UTC+12/+13)' },
+  { value: 'America/New_York', label: 'New York (UTC-5/-4)' },
+  { value: 'America/Chicago', label: 'Chicago (UTC-6/-5)' },
+  { value: 'America/Denver', label: 'Denver (UTC-7/-6)' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles (UTC-8/-7)' },
+  { value: 'America/Sao_Paulo', label: 'Sao Paulo (UTC-3)' },
+]
+
 onMounted(async () => {
   try {
     settings.value = await getSettings()
+    if (settings.value.DISPLAY_TIMEZONE) {
+      setTimezone(settings.value.DISPLAY_TIMEZONE)
+    }
     const status = await getStatus()
     scanRunning.value = status.running
   } catch { toast.err('Failed to load settings') }
@@ -62,6 +88,9 @@ async function saveSection(id: string) {
   saving.value = id
   try {
     await updateSettings(settings.value)
+    if (id === 'general' && settings.value.DISPLAY_TIMEZONE) {
+      setTimezone(settings.value.DISPLAY_TIMEZONE)
+    }
     toast.ok(`${sections.find(s => s.id === id)?.label || 'Settings'} saved`)
   } catch { toast.err('Failed to save settings') }
   finally { saving.value = null }
@@ -101,6 +130,47 @@ function scrollTo(id: string) {
 
         <!-- Sections -->
         <div class="sections">
+          <!-- General -->
+          <section id="general" class="card group">
+            <header class="group-head">
+              <div>
+                <div class="group-title">General</div>
+                <div class="group-sub">Regional preferences applied across the entire system.</div>
+              </div>
+              <AppIcon name="settings" :size="16" class="group-ic" />
+            </header>
+            <div class="group-body">
+              <div class="field">
+                <div class="lbl">
+                  <div class="k">Display timezone</div>
+                  <div class="h">All logs, timestamps, and dates will use this timezone. C++ engine logs update on restart.</div>
+                </div>
+                <div class="ctrl">
+                  <select
+                    class="input"
+                    :value="settings.DISPLAY_TIMEZONE || ''"
+                    @change="setField('DISPLAY_TIMEZONE', ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="">Browser default ({{ tz }})</option>
+                    <optgroup label="Common">
+                      <option v-for="t in COMMON_TZ" :key="t.value" :value="t.value">{{ t.label }}</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <footer class="group-foot">
+              <span class="foot-hint">
+                Current timezone:
+                <span class="mono">{{ settings.DISPLAY_TIMEZONE || tz }}</span>
+              </span>
+              <BaseButton size="sm" @click="saveSection('general')" :disabled="saving === 'general'">
+                <span v-if="saving === 'general'" class="spinner sm"></span>
+                {{ saving === 'general' ? 'Saving…' : 'Save' }}
+              </BaseButton>
+            </footer>
+          </section>
+
           <!-- Scan timing -->
           <section id="timing" class="card group">
             <header class="group-head">

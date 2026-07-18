@@ -2,8 +2,31 @@ import asyncio
 from fastapi import APIRouter, Request
 from app.database import get_db
 from app.state import get_paused, set_paused, set_last_scan, get_last_scan_ts
+from app.utils import get_display_timezone
 
 router = APIRouter(prefix="/api", tags=["dashboard"])
+
+
+def _tz_range() -> tuple[str, str]:
+    """Return UTC ISO strings for start/end of today in the configured display timezone."""
+    import zoneinfo
+    from datetime import datetime, timezone as dt_tz, timedelta
+
+    tz_name = get_display_timezone()
+    try:
+        tz = zoneinfo.ZoneInfo(tz_name)
+    except Exception:
+        tz = dt_tz.utc
+
+    now_local = datetime.now(tz)
+    day_start_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+    day_end_local = day_start_local + timedelta(days=1)
+
+    utc = dt_tz.utc
+    start_utc = day_start_local.astimezone(utc)
+    end_utc = day_end_local.astimezone(utc)
+
+    return start_utc.isoformat(), end_utc.isoformat()
 
 
 @router.get("/status")
@@ -15,18 +38,23 @@ async def get_status(request: Request):
     if charts == 0:
         charts = _load_chart_count_from_app(request)
 
+    tz_start, tz_end = _tz_range()
+
     row = db.execute(
-        "SELECT COUNT(*) as total FROM analyses WHERE date(timestamp) = date('now')"
+        "SELECT COUNT(*) as total FROM analyses WHERE timestamp >= ? AND timestamp < ?",
+        (tz_start, tz_end),
     ).fetchone()
     analyses_today = row["total"] if row else 0
 
     row = db.execute(
-        "SELECT COUNT(*) as total FROM analyses WHERE sent = 1 AND date(timestamp) = date('now')"
+        "SELECT COUNT(*) as total FROM analyses WHERE sent = 1 AND timestamp >= ? AND timestamp < ?",
+        (tz_start, tz_end),
     ).fetchone()
     signals_sent = row["total"] if row else 0
 
     row = db.execute(
-        "SELECT AVG(score) as avg FROM analyses WHERE date(timestamp) = date('now')"
+        "SELECT AVG(score) as avg FROM analyses WHERE timestamp >= ? AND timestamp < ?",
+        (tz_start, tz_end),
     ).fetchone()
     avg_score = round(row["avg"], 1) if row and row["avg"] else 0.0
 

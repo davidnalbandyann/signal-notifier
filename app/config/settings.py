@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     CPP_ENGINE_BINARY: str = "trading-signal-engine/build/trading_signal_engine"
     CPP_ENGINE_CONFIG: str = "trading-signal-engine/config.json"
 
+    DISPLAY_TIMEZONE: str = "UTC"
+
     REQUIRED_ENVVARS: ClassVar[list[str]] = [
         "TELEGRAM_TOKEN",
         "TELEGRAM_CHAT_ID",

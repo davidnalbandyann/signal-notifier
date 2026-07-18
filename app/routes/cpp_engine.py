@@ -1,9 +1,11 @@
 import asyncio
+import json
 import structlog
 
 from fastapi import APIRouter, Request
 
 from app.database import get_db
+from app.utils import get_display_timezone
 
 logger = structlog.get_logger(__name__)
 
@@ -37,8 +39,35 @@ async def _systemctl_pid() -> int | None:
     return None
 
 
+def _sync_timezone_to_config(settings) -> None:
+    from pathlib import Path
+
+    tz = get_display_timezone()
+    config_path = Path(settings.CPP_ENGINE_CONFIG if settings else "trading-signal-engine/config.json")
+    if not config_path.exists():
+        return
+
+    try:
+        with open(config_path, "r") as f:
+            cfg = json.load(f)
+    except Exception:
+        return
+
+    cfg.setdefault("logging", {})["timezone"] = tz
+
+    try:
+        with open(config_path, "w") as f:
+            json.dump(cfg, f, indent=2)
+        logger.info("timezone_synced_to_config", timezone=tz, path=str(config_path))
+    except Exception as e:
+        logger.warning("timezone_sync_failed", error=str(e))
+
+
 @router.post("/start")
 async def start_engine(request: Request):
+    settings = getattr(request.app.state, "_settings", None)
+    _sync_timezone_to_config(settings)
+
     if await _systemctl_active():
         pid = await _systemctl_pid()
         return {"ok": True, "pid": pid, "message": "Already running"}

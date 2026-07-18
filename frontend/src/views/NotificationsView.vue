@@ -11,10 +11,12 @@ import AppLoading from '@/components/ui/AppLoading.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { getNotifications, deleteNotification } from '@/api/notifications'
 import { useToast } from '@/composables/useToast'
+import { useTimezone } from '@/composables/useTimezone'
 import type { Notification } from '@/types'
 
 const router = useRouter()
 const toast = useToast()
+const { formatDate } = useTimezone()
 const items = ref<Notification[]>([])
 const total = ref(0)
 const loading = ref(true)
@@ -49,11 +51,7 @@ async function handleDelete(e: Event, id: number) {
 }
 
 function fmt(iso: string) {
-  const d = new Date(iso)
-  return d.toLocaleString([], {
-    month: 'short', day: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
+  return formatDate(iso, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 </script>
 

@@ -13,10 +13,12 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import { getAnalyses, resendNotification, reanalyze, deleteAnalysis } from '@/api/analyses'
 import { getCharts } from '@/api/charts'
 import { useToast } from '@/composables/useToast'
+import { useTimezone } from '@/composables/useTimezone'
 import type { Analysis, Chart } from '@/types'
 
 const router = useRouter()
 const toast = useToast()
+const { formatTime, formatDate, isSameDay } = useTimezone()
 const items = ref<Analysis[]>([])
 const charts = ref<Chart[]>([])
 const total = ref(0)
@@ -118,15 +120,12 @@ async function handleDelete(e: Event, id: number) {
 }
 
 function fmtTs(iso: string) {
-  const d = new Date(iso)
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const yest = new Date(today.getTime() - 86400000)
-  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate())
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  if (day.getTime() === today.getTime()) return ['Today', time]
-  if (day.getTime() === yest.getTime()) return ['Yesterday', time]
-  return [d.toLocaleDateString([], { month: 'short', day: 'numeric', year: '2-digit' }), time]
+  const time = formatTime(iso)
+  const now = new Date().toISOString()
+  const yesterday = new Date(Date.now() - 86400000).toISOString()
+  if (isSameDay(iso, now)) return ['Today', time]
+  if (isSameDay(iso, yesterday)) return ['Yesterday', time]
+  return [formatDate(iso, { month: 'short', day: 'numeric', year: '2-digit' }), time]
 }
 
 const activeFilters = computed(() =>

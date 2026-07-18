@@ -24,6 +24,7 @@
     "auth_token": ""
   },
   "logging": {
-    "level": "info"
+    "level": "info",
+    "timezone": "Asia/Yerevan"
   }
 }

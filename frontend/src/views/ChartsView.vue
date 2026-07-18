@@ -10,9 +10,11 @@ import AppLoading from '@/components/ui/AppLoading.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
 import { getCharts, addChart, updateChart, deleteChart } from '@/api/charts'
 import { useToast } from '@/composables/useToast'
+import { useTimezone } from '@/composables/useTimezone'
 import type { Chart } from '@/types'
 
 const toast = useToast()
+const { formatDate, formatTime } = useTimezone()
 const charts = ref<Chart[]>([])
 const loading = ref(true)
 
@@ -103,9 +105,7 @@ function favicon(url: string) {
 
 function fmtDate(iso: string | null) {
   if (!iso) return 'never'
-  const d = new Date(iso)
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' · ' +
-    d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatDate(iso, { month: 'short', day: 'numeric' }) + ' · ' + formatTime(iso)
 }
 </script>
 

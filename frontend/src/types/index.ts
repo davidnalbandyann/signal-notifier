@@ -84,4 +84,5 @@ export interface Settings {
   NOTIFY_SHORT?: boolean
   NOTIFY_NEUTRAL?: boolean
   URLS_FILE?: string
+  DISPLAY_TIMEZONE?: string
 }
