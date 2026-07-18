@@ -72,6 +72,10 @@ def init_db() -> None:
         db.execute("ALTER TABLE analyses ADD COLUMN error TEXT")
     except Exception:
         pass
+    try:
+        db.execute("ALTER TABLE analyses ADD COLUMN signal_json TEXT")
+    except Exception:
+        pass
     db.commit()
 
 

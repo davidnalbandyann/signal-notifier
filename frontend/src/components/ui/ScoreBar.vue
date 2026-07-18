@@ -1,59 +1,67 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   score: number
   size?: 'sm' | 'md' | 'lg'
-}>()
-
-const level = computed(() => {
-  if (props.score >= 8) return 'high'
-  if (props.score >= 5) return 'mid'
-  return 'low'
+  showValue?: boolean
+  max?: number
+}>(), {
+  size: 'sm',
+  showValue: true,
+  max: 10,
 })
 
-const pct = computed(() => `${Math.min(100, props.score * 10)}%`)
+const pct = computed(() => `${Math.min(100, (props.score / props.max) * 100)}%`)
+const level = computed(() => {
+  const ratio = props.score / props.max
+  if (ratio >= 0.7) return 'high'
+  if (ratio >= 0.5) return 'mid'
+  return 'low'
+})
 </script>
 
 <template>
-  <div :class="['score', level, size || 'sm']">
-    <div class="bar"><span :class="level" :style="{ width: pct }"></span></div>
-    <span class="v">{{ score.toFixed(1) }}</span>
+  <div :class="['scorebar', size, level]">
+    <div class="track"><span :class="['fill', level]" :style="{ width: pct }"></span></div>
+    <span v-if="showValue" class="val">{{ score.toFixed(1) }}</span>
   </div>
 </template>
 
 <style scoped>
-.score {
-  display: flex;
+.scorebar {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-weight: 600;
 }
-.score.sm { font-size: 12px; }
-.score.md { font-size: 14px; }
-.score.lg { font-size: 18px; }
-.bar {
-  height: 4px;
+.scorebar.sm { font-size: 12px; }
+.scorebar.md { font-size: 13px; }
+.scorebar.lg { font-size: 18px; gap: 12px; }
+
+.track {
   background: var(--surface-3);
   border-radius: 999px;
   overflow: hidden;
   flex-shrink: 0;
 }
-.score.sm .bar { width: 50px; }
-.score.md .bar { width: 80px; }
-.score.lg .bar { width: 120px; height: 6px; }
-.bar > span {
+.scorebar.sm .track { width: 48px; height: 4px; }
+.scorebar.md .track { width: 72px; height: 5px; }
+.scorebar.lg .track { width: 140px; height: 8px; }
+.fill {
   display: block;
   height: 100%;
   border-radius: 999px;
-  transition: width .3s;
+  transition: width .3s var(--ease);
 }
-.bar > span.high { background: var(--green); }
-.bar > span.mid { background: var(--amber); }
-.bar > span.low { background: var(--red); }
-.score.high { color: var(--green); }
-.score.mid { color: var(--amber); }
-.score.low { color: var(--red); }
-.v { min-width: 36px; text-align: right; }
+.fill.high { background: var(--green); }
+.fill.mid  { background: var(--amber); }
+.fill.low  { background: var(--red); }
+
+.val { min-width: 32px; text-align: right; }
+.scorebar.high .val { color: var(--green); }
+.scorebar.mid  .val { color: var(--amber); }
+.scorebar.low  .val { color: var(--red); }
 </style>

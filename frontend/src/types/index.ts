@@ -13,6 +13,7 @@ export interface Analysis {
   sent: boolean
   screenshot_url?: string
   notification_id?: number | null
+  signal_json?: string | null
 }
 
 export interface Chart {
@@ -45,6 +46,19 @@ export interface DashboardStatus {
   avg_score: number
   recent_analyses: Analysis[]
   signals: Analysis[]
+}
+
+export interface CppEngineStatus {
+  running: boolean
+  pid: number | null
+  uptime_seconds: number | null
+  last_signal: {
+    chart_name: string
+    timestamp: string
+    score: number
+    direction: string
+    entry: string | null
+  } | null
 }
 
 export interface Settings {

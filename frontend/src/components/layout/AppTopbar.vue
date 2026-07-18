@@ -1,15 +1,19 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
-import { useRouter } from 'vue-router'
+import AppIcon from '@/components/ui/AppIcon.vue'
 
-defineProps<{
-  crumbs?: string[]
-}>()
-
+const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 const app = useAppStore()
-const router = useRouter()
+
+const crumbs = computed(() => {
+  const c = (route.meta.crumbs as string[] | undefined)
+  return c && c.length ? c : ['Dashboard']
+})
 
 function logout() {
   auth.logout()
@@ -20,29 +24,33 @@ function logout() {
 <template>
   <header class="topbar">
     <div class="crumbs">
-      MONITOR · <b>{{ crumbs?.[crumbs.length - 1] || 'Dashboard' }}</b>
+      <span class="crumb-root">MONITOR</span>
+      <span class="crumb-sep">/</span>
+      <span v-for="(c, i) in crumbs" :key="i" class="crumb">
+        <span v-if="i > 0" class="crumb-sep">/</span>
+        <span :class="['crumb-text', { last: i === crumbs.length - 1 }]">{{ c }}</span>
+      </span>
     </div>
-    <div class="topbar-spacer"></div>
-    <button class="theme-toggle" @click="app.toggleTheme" :title="app.theme === 'dark' ? 'Switch to light' : 'Switch to dark'">
-      <svg v-if="app.theme === 'dark'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>
-        <line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>
-        <line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-      <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
+
+    <div class="spacer"></div>
+
+    <button
+      class="icon-btn"
+      @click="app.toggleTheme()"
+      :title="app.theme === 'dark' ? 'Switch to light' : 'Switch to dark'"
+      :aria-label="app.theme === 'dark' ? 'Switch to light' : 'Switch to dark'"
+    >
+      <AppIcon :name="app.theme === 'dark' ? 'sun' : 'moon'" :size="15" />
     </button>
+
     <div class="user">
       <div class="avatar">DA</div>
-      <div class="user-name">david@local <span class="role">· owner</span></div>
-      <button class="logout" title="Log out" @click="logout">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
+      <div class="user-meta">
+        <div class="user-name">david@local</div>
+        <div class="user-role">owner</div>
+      </div>
+      <button class="icon-btn sm logout" @click="logout" title="Log out" aria-label="Log out">
+        <AppIcon name="logout" :size="14" />
       </button>
     </div>
   </header>
@@ -52,72 +60,67 @@ function logout() {
 .topbar {
   position: sticky;
   top: 0;
-  z-index: 50;
+  z-index: var(--z-topbar);
   height: var(--topbar-h);
-  background: oklch(15% 0.012 252 / 0.85);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: oklch(14% 0.014 264 / 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 24px;
-  gap: 16px;
+  padding: 0 16px;
+  gap: 10px;
+  flex-shrink: 0;
 }
-[data-theme="light"] .topbar { background: oklch(99% 0.002 240 / 0.85); }
+[data-theme="light"] .topbar { background: oklch(99% 0.002 250 / 0.85); }
+
 .crumbs {
-  color: var(--muted);
-  font-size: 12px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 600 11px var(--font-mono);
+  letter-spacing: 0.06em;
+  min-width: 0;
+  overflow: hidden;
 }
-.crumbs b { color: var(--fg); font-weight: 600; }
-.topbar-spacer { flex: 1; }
-.theme-toggle {
-  width: 32px;
-  height: 32px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--muted);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: background .12s, color .12s;
-}
-.theme-toggle:hover { background: var(--surface-2); color: var(--fg); }
+.crumb-root { color: var(--muted); text-transform: uppercase; }
+.crumb { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.crumb-sep { color: var(--muted-2); }
+.crumb-text { color: var(--fg-2); text-transform: capitalize; }
+.crumb-text.last { color: var(--fg); }
+
+.spacer { flex: 1; }
+
+.icon-btn { width: 30px; height: 30px; }
+
 .user {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 8px 4px 4px;
+  gap: 8px;
+  padding: 3px 6px 3px 4px;
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--border);
 }
 .avatar {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: linear-gradient(135deg, oklch(60% 0.18 262), oklch(48% 0.20 280));
+  background: var(--accent);
+  color: var(--accent-fg);
   display: grid;
   place-items: center;
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
+  font: 700 9.5px var(--font-mono);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
 }
-.user-name { font-size: 12px; font-weight: 500; }
-.user-name .role { color: var(--muted); font-weight: 400; }
-.logout {
-  width: 28px;
-  height: 28px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  color: var(--muted);
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  transition: background .12s, color .12s;
+.user-meta { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.user-name { font: 600 11.5px var(--font-sans); color: var(--fg); }
+.user-role { font: 500 9.5px var(--font-mono); color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+.icon-btn.sm { width: 24px; height: 24px; }
+.icon-btn.sm.logout:hover { color: var(--red); background: var(--red-soft); border-color: transparent; }
+
+@media (max-width: 720px) {
+  .user-meta { display: none; }
 }
-.logout:hover { background: var(--surface-2); color: var(--fg); }
 </style>

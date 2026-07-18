@@ -87,6 +87,7 @@ def _analysis_row(r) -> dict:
         "stop_loss": r["stop_loss"],
         "take_profit": r["take_profit"],
         "sent": bool(r["sent"]),
+        "signal_json": r["signal_json"] if r["signal_json"] else None,
     }
 
 

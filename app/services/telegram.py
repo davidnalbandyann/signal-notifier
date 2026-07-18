@@ -19,9 +19,10 @@ class TelegramService:
         self._chat_id = settings.TELEGRAM_CHAT_ID
 
     async def notify(
-        self, name: str, analysis: AnalysisResult, screenshot: bytes
+        self, name: str, analysis: AnalysisResult, screenshot: bytes,
+        extra_caption: str | None = None,
     ) -> None:
-        caption = self._build_caption(name, analysis)
+        caption = self._build_caption(name, analysis, extra_caption)
         photo = BytesIO(screenshot)
         photo.name = "chart.png"
 
@@ -45,12 +46,14 @@ class TelegramService:
                 error=str(e),
             )
 
-    def _build_caption(self, name: str, analysis: AnalysisResult) -> str:
+    def _build_caption(self, name: str, analysis: AnalysisResult, extra_caption: str | None = None) -> str:
         prefix = (
             f"<b>{name}</b>\n\n"
             f"Score: <b>{analysis.score}/10</b>\n"
             f"Direction: <b>{analysis.direction.value}</b>\n\n"
         )
+        if extra_caption:
+            prefix = extra_caption + prefix
 
         suffix_parts = []
         if analysis.entry:

@@ -1,0 +1,29 @@
+{
+  "data_source": {
+    "type": "binance",
+    "symbol": "btcusdt",
+    "timeframe": "15m"
+  },
+  "strategy": {
+    "type": "volume_profile_sr",
+    "params": {
+      "lookback_candles": 300,
+      "bucket_size": 100.0,
+      "zone_window": 3,
+      "min_zone_volume": 5000.0,
+      "touch_threshold_pct": 0.5,
+      "volume_mult": 1.5,
+      "cooldown_candles": 6,
+      "recalc_interval": 50,
+      "volume_period": 20
+    }
+  },
+  "python_service": {
+    "url": "http://127.0.0.1:8000/trigger",
+    "timeout_sec": 35,
+    "auth_token": ""
+  },
+  "logging": {
+    "level": "info"
+  }
+}

@@ -45,6 +45,12 @@ const routes = [
     meta: { crumbs: ['Settings'] },
   },
   {
+    path: '/engine',
+    name: 'engine',
+    component: () => import('@/views/EngineView.vue'),
+    meta: { crumbs: ['C++ Engine'] },
+  },
+  {
     path: '/strategy',
     name: 'strategy',
     component: () => import('@/views/StrategyView.vue'),

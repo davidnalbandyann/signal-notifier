@@ -27,3 +27,10 @@ design/
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+# C++ engine
+trading-signal-engine/_deps/
+trading-signal-engine/CMakeCache.txt
+trading-signal-engine/CMakeFiles/
+trading-signal-engine/compile_commands.json
+trading-signal-engine/*.exe
