@@ -1,111 +1,165 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import AppShell from '@/components/layout/AppShell.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
-import Toast from '@/components/ui/Toast.vue'
+import AppIcon from '@/components/ui/AppIcon.vue'
+import AppToast from '@/components/ui/AppToast.vue'
+import AppLoading from '@/components/ui/AppLoading.vue'
 import { getStrategy, updateStrategy } from '@/api/strategy'
+import { useToast } from '@/composables/useToast'
 
+const toast = useToast()
 const content = ref('')
+const original = ref('')
 const loading = ref(true)
 const saving = ref(false)
-const toast = ref({ show: false, message: '' })
 
 onMounted(async () => {
   try {
     const res = await getStrategy()
     content.value = res.content
-  } finally {
-    loading.value = false
-  }
+    original.value = res.content
+  } catch { toast.err('Failed to load strategy') }
+  finally { loading.value = false }
 })
+
+const dirty = computed(() => content.value !== original.value)
+const lineCount = computed(() => content.value.split('\n').length)
+const charCount = computed(() => content.value.length)
 
 async function save() {
   saving.value = true
   try {
     await updateStrategy(content.value)
-    toast.value = { show: true, message: 'Strategy updated' }
-  } catch {
-    toast.value = { show: true, message: 'Failed to save strategy' }
-  } finally {
-    saving.value = false
-  }
+    original.value = content.value
+    toast.ok('Strategy updated')
+  } catch { toast.err('Failed to save strategy') }
+  finally { saving.value = false }
+}
+
+function reset() {
+  if (!dirty.value || !confirm('Discard unsaved changes?')) return
+  content.value = original.value
 }
 </script>
 
 <template>
-  <AppShell :crumbs="['Strategy']">
+  <AppShell>
     <div class="pg">
-      <div class="pg-head">
-        <h1 class="h1">Strategy prompt</h1>
-        <div class="spacer"></div>
-        <BaseButton @click="save" :disabled="saving">{{ saving ? 'Saving…' : 'Save strategy' }}</BaseButton>
+      <header class="pg-head">
+        <div>
+          <h1 class="pg-title">Strategy prompt</h1>
+          <div class="pg-sub">System prompt sent to the vision model on every analysis</div>
+        </div>
+        <div class="grow"></div>
+        <BaseButton variant="ghost" @click="reset" :disabled="!dirty || saving">
+          <AppIcon name="refresh" :size="13" />
+          Discard
+        </BaseButton>
+        <BaseButton @click="save" :disabled="!dirty || saving">
+          <span v-if="saving" class="spinner sm"></span>
+          <AppIcon v-else name="check" :size="13" :stroke="2.5" />
+          {{ saving ? 'Saving…' : 'Save strategy' }}
+        </BaseButton>
+      </header>
+
+      <div class="card info-banner">
+        <AppIcon name="info" :size="14" :stroke="2" class="info-ic" />
+        <div class="info-text">
+          <div class="info-title">Edit with care</div>
+          <div class="info-sub">This prompt is hot-reloaded on every cycle. Plain markdown is supported.</div>
+        </div>
       </div>
 
-      <div v-if="loading" class="loading">
-        <div class="spinner"></div>
-      </div>
+      <AppLoading v-if="loading" label="Loading strategy…" />
 
-      <div v-else class="editor-card">
-        <div class="editor-hint">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent)">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
-          </svg>
-          <span>This is the system prompt sent to the AI model for every chart analysis. Edit with care.</span>
+      <div v-else class="card editor-card">
+        <div class="editor-head">
+          <div class="editor-stats mono">
+            <span>{{ lineCount }} lines</span>
+            <span class="sep">·</span>
+            <span>{{ charCount.toLocaleString() }} chars</span>
+            <span v-if="dirty" class="dirty">
+              <span class="dirty-dot"></span> unsaved
+            </span>
+          </div>
         </div>
         <textarea
           v-model="content"
-          class="editor mono"
-          rows="28"
+          class="editor"
           spellcheck="false"
+          wrap="off"
+          placeholder="# Trading strategy prompt
+Define the rules the AI uses to score charts and decide direction…"
         ></textarea>
       </div>
     </div>
-    <Toast :show="toast.show" :message="toast.message" @dismiss="toast.show = false" />
+    <AppToast />
   </AppShell>
 </template>
 
 <style scoped>
-.pg { display: flex; flex-direction: column; gap: 20px; }
-.pg-head { display: flex; align-items: center; gap: 16px; }
-.h1 { font-size: 20px; font-weight: 700; margin: 0; letter-spacing: -0.015em; }
-.spacer { flex: 1; }
-.loading { display: grid; place-items: center; padding: 80px 0; }
-.spinner { width: 32px; height: 32px; border: 3px solid var(--surface-3); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.editor-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px 22px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-.editor-hint {
+.pg { display: flex; flex-direction: column; gap: 14px; max-width: 1100px; }
+
+.pg-head { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.pg-title { font: 600 18px var(--font-sans); letter-spacing: -0.015em; }
+.pg-sub { font: 400 12px var(--font-mono); color: var(--muted); margin-top: 3px; }
+
+.info-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 10px 12px;
-  background: var(--accent-soft);
-  border: 1px solid oklch(60% 0.18 262 / 0.3);
-  border-radius: var(--radius);
+  gap: 11px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--accent);
 }
+.info-ic { color: var(--accent); flex-shrink: 0; }
+.info-title { font: 600 13px var(--font-sans); color: var(--fg); }
+.info-sub { font: 400 11.5px var(--font-sans); color: var(--muted); margin-top: 1px; }
+
+.editor-card { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.editor-stats {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font: 500 11px var(--font-mono);
+  color: var(--muted);
+}
+.editor-stats .sep { color: var(--muted-2); }
+.dirty {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--amber);
+  margin-left: 6px;
+}
+.dirty-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+
 .editor {
   width: 100%;
-  min-height: 480px;
-  padding: 16px;
-  background: var(--bg-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  min-height: 540px;
+  padding: 16px 18px;
+  background: var(--bg);
+  border: 0;
   color: var(--fg);
-  font-size: 13px;
-  font-family: var(--font-mono);
-  line-height: 1.7;
+  font: 500 13px/1.7 var(--font-mono);
   resize: vertical;
   tab-size: 2;
+  outline: none;
 }
-.editor:focus { outline: none; border-color: var(--accent); }
-.mono { font-family: var(--font-mono); }
+.editor::placeholder { color: var(--muted-2); }
+.editor:focus { background: var(--bg-2); }
+
+.spinner.sm {
+  width: 13px; height: 13px;
+  border: 2px solid oklch(99% 0.003 250 / 0.3);
+  border-top-color: var(--accent-fg);
+}
 </style>

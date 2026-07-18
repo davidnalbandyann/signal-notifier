@@ -1,20 +1,16 @@
 <script setup lang="ts">
+import { useAppStore } from '@/stores/app'
 import AppSidebar from './AppSidebar.vue'
 import AppTopbar from './AppTopbar.vue'
-import { useAppStore } from '@/stores/app'
 
 const app = useAppStore()
-
-defineProps<{
-  crumbs?: string[]
-}>()
 </script>
 
 <template>
-  <div :class="['app', { collapsed: app.sidebarCollapsed }]">
+  <div :class="['shell', { collapsed: app.sidebarCollapsed }]">
     <AppSidebar />
     <div class="main">
-      <AppTopbar :crumbs="crumbs" />
+      <AppTopbar />
       <main class="page">
         <slot />
       </main>
@@ -23,20 +19,29 @@ defineProps<{
 </template>
 
 <style scoped>
-.app {
+.shell {
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
-  min-height: 100vh;
-  transition: grid-template-columns .25s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 100vh;
+  transition: grid-template-columns .22s var(--ease);
 }
-.app:not(.collapsed) { grid-template-columns: var(--sidebar-w-h) 1fr; }
+.shell.collapsed {
+  grid-template-columns: var(--sidebar-w-c) 1fr;
+}
 .main {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100vh;
 }
 .page {
-  padding: 24px 32px 48px;
-  max-width: 1600px;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 22px 28px 56px;
+}
+@media (max-width: 720px) {
+  .page { padding: 16px 14px 40px; }
+  .shell, .shell.collapsed { grid-template-columns: 0 1fr; }
 }
 </style>

@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import AppIcon from './AppIcon.vue'
+
 defineProps<{
   label: string
   value: string | number
+  icon?: string
+  hint?: string
   delta?: string
   deltaUp?: boolean
 }>()
@@ -9,10 +13,14 @@ defineProps<{
 
 <template>
   <div class="stat">
-    <div class="k">{{ label }}</div>
+    <div class="head">
+      <span v-if="icon" class="ic"><AppIcon :name="icon" :size="13" /></span>
+      <span class="k">{{ label }}</span>
+    </div>
     <div class="v num">{{ value }}</div>
-    <div v-if="delta" :class="['d', deltaUp ? 'up' : deltaUp === false ? 'down' : '']">
-      {{ delta }}
+    <div v-if="delta || hint" class="foot">
+      <span v-if="delta" :class="['delta', deltaUp ? 'up' : deltaUp === false ? 'down' : '']">{{ delta }}</span>
+      <span v-else class="hint">{{ hint }}</span>
     </div>
   </div>
 </template>
@@ -22,30 +30,35 @@ defineProps<{
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px 18px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
+  position: relative;
 }
+.head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ic { color: var(--muted); display: grid; place-items: center; }
 .k {
   color: var(--muted);
-  font-size: 11px;
-  font-family: var(--font-mono);
-  letter-spacing: 0.08em;
+  font: 600 10.5px var(--font-mono);
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  font-weight: 600;
 }
 .v {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 26px;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
-.d {
-  font-size: 12px;
-  color: var(--muted);
-}
-.d.up { color: var(--green); }
-.d.down { color: var(--red); }
+.foot { display: flex; align-items: center; gap: 6px; }
+.delta, .hint { font-size: 11.5px; color: var(--muted); }
+.delta.up { color: var(--green); }
+.delta.down { color: var(--red); }
 </style>

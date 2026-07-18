@@ -1,33 +1,27 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
-import { pauseScan, resumeScan, triggerScan, getStatus } from '@/api/dashboard'
+import { getStatus, pauseScan, resumeScan, triggerScan } from '@/api/dashboard'
+import { useToast } from '@/composables/useToast'
+import AppIcon from '@/components/ui/AppIcon.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 
-const router = useRouter()
 const route = useRoute()
-const auth = useAuthStore()
 const app = useAppStore()
+const toast = useToast()
 const running = ref(true)
-const actionLoading = ref(false)
+const actionLoading = ref<null | 'pause' | 'scan'>(null)
+let poll: ReturnType<typeof setInterval> | null = null
 
-onMounted(async () => {
-  try {
-    const status = await getStatus()
-    running.value = status.running
-  } catch {}
-})
-
-const navItems = [
-  { path: '/', label: 'Dashboard', icon: 'dashboard' },
-  { path: '/charts', label: 'Charts', icon: 'charts' },
-  { path: '/history', label: 'History', icon: 'history' },
-  { path: '/notifications', label: 'Notifications', icon: 'notifications' },
-  { path: '/engine', label: 'Engine', icon: 'engine' },
-  { path: '/strategy', label: 'Strategy', icon: 'strategy' },
-  { path: '/settings', label: 'Settings', icon: 'settings' },
+const nav = [
+  { path: '/',        label: 'Dashboard',    icon: 'dashboard' },
+  { path: '/charts',  label: 'Charts',       icon: 'charts' },
+  { path: '/history', label: 'History',      icon: 'history' },
+  { path: '/notifications', label: 'Signals', icon: 'bell' },
+  { path: '/engine',  label: 'C++ Engine',   icon: 'engine' },
+  { path: '/strategy', label: 'Strategy',    icon: 'strategy' },
+  { path: '/settings', label: 'Settings',    icon: 'settings' },
 ]
 
 function isActive(path: string) {
@@ -35,220 +29,263 @@ function isActive(path: string) {
   return route.path.startsWith(path)
 }
 
-async function togglePause() {
+async function syncRun() {
   try {
-    if (running.value) {
-      await pauseScan()
-      running.value = false
-    } else {
-      await resumeScan()
-      running.value = true
-    }
-  } catch (e) {
-    console.error(e)
-  }
+    const s = await getStatus()
+    running.value = s.running
+  } catch { /* silent */ }
+}
+
+async function togglePause() {
+  if (actionLoading.value) return
+  actionLoading.value = 'pause'
+  try {
+    if (running.value) { await pauseScan(); running.value = false; toast.ok('Scan loop paused') }
+    else { await resumeScan(); running.value = true; toast.ok('Scan loop resumed') }
+  } catch { toast.err('Failed to toggle scan loop') }
+  finally { actionLoading.value = null }
 }
 
 async function runScan() {
-  actionLoading.value = true
+  if (actionLoading.value) return
+  actionLoading.value = 'scan'
   try {
     await triggerScan()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    actionLoading.value = false
-  }
+    toast.ok('Scan triggered')
+  } catch { toast.err('Failed to trigger scan') }
+  finally { actionLoading.value = null }
 }
+
+onMounted(() => {
+  syncRun()
+  poll = setInterval(syncRun, 8000)
+})
+onUnmounted(() => { if (poll) clearInterval(poll) })
 </script>
 
 <template>
   <aside :class="['sidebar', { collapsed: app.sidebarCollapsed }]">
-    <div class="side-brand">
-      <div class="side-mark">T</div>
-      <div class="side-name">Trading Chart AI Monitor</div>
+    <div class="brand">
+      <div class="mark">TC</div>
+      <div class="brand-text">
+        <div class="brand-name">Trading Monitor</div>
+        <div class="brand-sub">AI chart control</div>
+      </div>
     </div>
-    <nav class="side-nav">
+
+    <nav class="nav">
       <router-link
-        v-for="item in navItems"
+        v-for="item in nav"
         :key="item.path"
         :to="item.path"
         :class="['nav-item', { active: isActive(item.path) }]"
+        :title="item.label"
       >
-        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <template v-if="item.icon === 'dashboard'">
-            <rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/>
-            <rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>
-          </template>
-          <template v-else-if="item.icon === 'charts'">
-            <polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/>
-          </template>
-          <template v-else-if="item.icon === 'history'">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </template>
-          <template v-else-if="item.icon === 'notifications'">
-            <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-          </template>
-          <template v-else-if="item.icon === 'strategy'">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </template>
-          <template v-else-if="item.icon === 'engine'">
-            <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
-          </template>
-          <template v-else-if="item.icon === 'settings'">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-          </template>
-        </svg>
-        <span class="nav-label">{{ item.label }}</span>
+        <AppIcon :name="item.icon" :size="17" class="nav-ic" />
+        <span class="nav-lbl">{{ item.label }}</span>
       </router-link>
     </nav>
 
-    <button class="toggle-btn" @click="app.toggleSidebar()" title="Toggle sidebar">
-      <svg class="toggle-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="9 6 15 12 9 18" />
-      </svg>
-    </button>
-
-    <div class="side-foot">
-      <BaseButton variant="warn" size="sm" full @click="togglePause">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <rect v-if="running" x="6" y="5" width="4" height="14"/><rect v-if="running" x="14" y="5" width="4" height="14"/>
-          <polygon v-else points="6 4 20 12 6 20"/>
-        </svg>
-        <span class="nav-label">{{ running ? 'Pause loop' : 'Resume loop' }}</span>
-      </BaseButton>
-      <BaseButton size="sm" full @click="runScan" :disabled="actionLoading">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20"/></svg>
-        <span class="nav-label">Run scan now</span>
-      </BaseButton>
+    <div class="foot">
+      <button
+        :class="['foot-btn', { live: running }]"
+        @click="togglePause"
+        :disabled="actionLoading === 'pause'"
+        :title="running ? 'Pause scan loop' : 'Resume scan loop'"
+      >
+        <AppIcon :name="running ? 'pause' : 'play'" :size="13" />
+        <span class="foot-lbl">{{ running ? 'Pause loop' : 'Resume loop' }}</span>
+        <span v-if="running" class="foot-dot"></span>
+      </button>
+      <button
+        class="foot-btn primary"
+        @click="runScan"
+        :disabled="actionLoading === 'scan'"
+        title="Run a scan now"
+      >
+        <AppIcon name="refresh" :size="13" :stroke="2.5" />
+        <span class="foot-lbl">Run scan now</span>
+      </button>
+      <button
+        class="foot-toggle"
+        @click="app.toggleSidebar()"
+        :title="app.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        :aria-label="app.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+      >
+        <AppIcon name="chevronLeft" :size="14" :stroke="2.5" />
+        <span class="foot-lbl">Collapse</span>
+      </button>
     </div>
   </aside>
 </template>
 
 <style scoped>
 .sidebar {
-  position: sticky;
-  top: 0;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   background: var(--bg-2);
   border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   width: var(--sidebar-w);
-  transition: width .25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width .22s var(--ease);
+  flex-shrink: 0;
 }
-.sidebar:not(.collapsed) { width: var(--sidebar-w-h); }
+.sidebar.collapsed { width: var(--sidebar-w-c); }
 
-.side-brand {
+.brand {
   display: flex;
   align-items: center;
   gap: 10px;
   height: var(--topbar-h);
-  padding: 0 16px;
+  padding: 0 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  overflow: hidden;
 }
-.side-mark {
+.mark {
   width: 28px;
   height: 28px;
-  background: linear-gradient(135deg, var(--accent), oklch(48% 0.20 280));
-  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-radius: 7px;
   display: grid;
   place-items: center;
-  color: var(--accent-fg);
-  font-weight: 700;
-  font-size: 12px;
+  font: 700 11px var(--font-mono);
+  letter-spacing: 0.04em;
   flex-shrink: 0;
 }
-.side-name {
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: -0.01em;
+.brand-text { min-width: 0; overflow: hidden; }
+.brand-name {
+  font: 600 12.5px var(--font-sans);
+  color: var(--fg);
+  letter-spacing: -0.005em;
   white-space: nowrap;
-  opacity: 0;
-  transition: opacity .2s .05s;
 }
-.sidebar:not(.collapsed) .side-name { opacity: 1; }
+.brand-sub {
+  font: 500 10.5px var(--font-mono);
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
 
-.side-nav {
-  padding: 12px 8px;
+.nav {
+  flex: 1;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  flex: 1;
+  gap: 1px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
+  gap: 11px;
+  padding: 8px 11px;
   border-radius: var(--radius);
   color: var(--fg-2);
   text-decoration: none;
-  font-size: 13px;
+  font: 500 13px var(--font-sans);
   white-space: nowrap;
   position: relative;
-  transition: background .12s, color .12s;
+  transition: background .12s var(--ease), color .12s;
 }
 .nav-item:hover { background: var(--surface); color: var(--fg); }
-.nav-item.active { background: var(--accent-soft); color: var(--fg); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent); }
 .nav-item.active::before {
   content: '';
   position: absolute;
-  left: 0;
+  left: -8px;
   top: 8px;
   bottom: 8px;
   width: 2px;
   background: var(--accent);
   border-radius: 0 2px 2px 0;
 }
-.nav-icon {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-  color: var(--muted);
-}
-.nav-item.active .nav-icon,
-.nav-item:hover .nav-icon { color: var(--accent); }
-.nav-label {
-  opacity: 0;
-  overflow: hidden;
-  max-width: 0;
-  white-space: nowrap;
-  transition: opacity .2s .05s, max-width .25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.sidebar:not(.collapsed) .nav-label {
+.nav-ic { color: var(--muted); flex-shrink: 0; transition: color .12s; }
+.nav-item:hover .nav-ic { color: var(--fg-2); }
+.nav-item.active .nav-ic { color: var(--accent); }
+
+.nav-lbl, .brand-text, .foot-lbl {
   opacity: 1;
-  max-width: 160px;
+  transition: opacity .15s var(--ease);
+}
+.sidebar.collapsed .nav-lbl,
+.sidebar.collapsed .brand-text,
+.sidebar.collapsed .foot-lbl {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
 }
 
-.toggle-btn {
+.foot {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.foot-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 32px;
+  padding: 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--fg-2);
+  font: 600 12px var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s, color .12s;
+  width: 100%;
+  position: relative;
+}
+.foot-btn:hover { background: var(--surface-2); color: var(--fg); border-color: var(--border-2); }
+.foot-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.foot-btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: var(--accent-fg);
+}
+.foot-btn.primary:hover { background: var(--accent-2); }
+.foot-btn.live { color: var(--green); border-color: oklch(74% 0.17 152 / 0.3); }
+.foot-btn.live:hover { color: var(--green); background: var(--green-soft); }
+.foot-dot {
+  margin-left: auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2.2s infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 oklch(74% 0.17 152 / 0.5); }
+  70%  { box-shadow: 0 0 0 6px oklch(74% 0.17 152 / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(74% 0.17 152 / 0); }
+}
+
+.foot-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 32px;
+  gap: 8px;
+  height: 26px;
   background: transparent;
   border: 0;
-  border-top: 1px solid var(--border);
-  color: var(--muted);
+  color: var(--muted-2);
   cursor: pointer;
-  transition: background .12s, color .12s;
-  flex-shrink: 0;
+  border-radius: var(--radius);
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.04em;
+  transition: color .12s, background .12s;
+  white-space: nowrap;
 }
-.toggle-btn:hover { background: var(--surface); color: var(--fg); }
-.toggle-chevron {
-  transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.sidebar:not(.collapsed) .toggle-chevron { transform: rotate(180deg); }
-
-.side-foot {
-  padding: 12px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.foot-toggle:hover { color: var(--fg-2); background: var(--surface); }
+.sidebar.collapsed .foot-toggle svg { transform: rotate(180deg); }
+.foot-toggle svg { transition: transform .22s var(--ease); }
 </style>

@@ -1,38 +1,37 @@
 <script setup lang="ts">
-defineProps<{
-  status: 'ok' | 'error' | 'skipped'
-}>()
+withDefaults(defineProps<{
+  status: 'ok' | 'error' | 'skipped' | 'sent' | 'fail'
+  label?: string
+}>(), {})
+const map: Record<string, string> = {
+  ok: 'OK', error: 'ERROR', skipped: 'SKIPPED', sent: 'SENT', fail: 'FAILED',
+}
+const kindMap: Record<string, string> = {
+  ok: 'ok', sent: 'ok', error: 'error', fail: 'error', skipped: 'skipped',
+}
 </script>
 
 <template>
-  <span :class="['status-pill', status]">
-    {{ status === 'ok' ? 'ok' : status === 'error' ? 'error' : 'paused' }}
+  <span :class="['pill', kindMap[status]]">
+    <span class="d"></span>
+    {{ label || map[status] || status }}
   </span>
 </template>
 
 <style scoped>
-.status-pill {
+.pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 8px;
+  padding: 2px 8px 2px 7px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
+  font: 600 10.5px var(--font-mono);
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
-.status-pill::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-.status-pill.ok { background: var(--green-soft); color: var(--green); }
-.status-pill.ok::before { background: var(--green); }
-.status-pill.error { background: var(--red-soft); color: var(--red); }
-.status-pill.error::before { background: var(--red); }
-.status-pill.skipped { background: var(--surface-3); color: var(--muted); }
-.status-pill.skipped::before { background: var(--muted); }
+.d { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ok { background: var(--green-soft); color: var(--green); }
+.error { background: var(--red-soft); color: var(--red); }
+.skipped { background: var(--surface-3); color: var(--muted); }
 </style>

@@ -1,15 +1,27 @@
 <script setup lang="ts">
-const props = defineProps<{
-  variant?: 'LONG' | 'SHORT' | 'NEUTRAL' | 'sent' | 'fail'
-  direction?: 'LONG' | 'SHORT' | 'NEUTRAL'
-  status?: 'sent' | 'fail'
-}>()
+import { computed } from 'vue'
+import type { Direction } from '@/types'
 
-const tag = props.variant || props.direction || props.status || 'NEUTRAL'
+const props = withDefaults(defineProps<{
+  direction?: Direction | string
+  status?: 'sent' | 'fail' | 'ok' | 'error' | 'skipped'
+  variant?: Direction | 'sent' | 'fail' | 'ok' | 'error' | 'skipped' | 'neutral'
+  dot?: boolean
+  upper?: boolean
+}>(), { upper: true })
+
+const tag = computed(() => {
+  const v = props.variant || props.direction || props.status || 'neutral'
+  if (v === 'LONG' || v === 'ok' || v === 'sent') return 'long'
+  if (v === 'SHORT' || v === 'fail' || v === 'error') return 'short'
+  if (v === 'NEUTRAL' || v === 'skipped' || v === 'neutral') return 'neutral'
+  return 'neutral'
+})
 </script>
 
 <template>
-  <span :class="['chip', tag]">
+  <span :class="['chip', tag, { dot, upper }]">
+    <span v-if="dot" class="d"></span>
     <slot />
   </span>
 </template>
@@ -18,18 +30,22 @@ const tag = props.variant || props.direction || props.status || 'NEUTRAL'
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
+  gap: 5px;
+  padding: 2px 8px;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  font: 700 10.5px var(--font-mono);
   letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-family: var(--font-mono);
+  white-space: nowrap;
+  line-height: 1.5;
 }
-.chip.LONG { background: var(--green-soft); color: var(--green); }
-.chip.SHORT { background: var(--red-soft); color: var(--red); }
-.chip.NEUTRAL { background: var(--surface-3); color: var(--fg-2); }
-.chip.sent { background: var(--accent-soft); color: var(--accent-2); border: 1px solid oklch(60% 0.18 262 / 0.4); }
-.chip.fail { background: var(--red-soft); color: var(--red); border: 1px solid oklch(68% 0.20 25 / 0.35); }
+.chip.upper { text-transform: uppercase; }
+.chip .d {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.chip.long { background: var(--green-soft); color: var(--green); }
+.chip.short { background: var(--red-soft); color: var(--red); }
+.chip.neutral { background: var(--surface-3); color: var(--fg-2); }
 </style>
