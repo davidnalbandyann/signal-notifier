@@ -43,6 +43,9 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} <<'REMOTE'
             set -e
 
+            echo "--- Fixing permissions ---"
+            chown -R tcm:tcm /home/tcm/trading-notifier
+
             echo "--- Installing Python deps ---"
             su - tcm -c "
               cd /home/tcm/trading-notifier
