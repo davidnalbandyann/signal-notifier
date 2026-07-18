@@ -58,6 +58,17 @@ class SchedulerService:
             logger.info("cycle_skipped_paused")
             return
 
+        # Check if C++ engine bypass is enabled — skip AI analysis cycle
+        db = get_db()
+        bypass_row = db.execute(
+            "SELECT value FROM settings WHERE key = ?", ("CPP_BYPASS_AI",)
+        ).fetchone()
+        cpp_bypass = bypass_row and bypass_row["value"].lower() in ("true", "1", "yes")
+        if cpp_bypass:
+            logger.info("cycle_skipped_cpp_bypass")
+            set_last_scan()
+            return
+
         charts = self._load_charts()
         if not charts:
             logger.warning("no_charts_configured")

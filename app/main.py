@@ -45,9 +45,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     yield
 
-    # Stop the C++ engine if running
-    from app.routes.cpp_engine import _stop_engine
-    await _stop_engine(app.state)
+    # C++ engine is managed via systemd — no subprocess to stop here
 
     await scheduler.stop()
     await browser.stop()

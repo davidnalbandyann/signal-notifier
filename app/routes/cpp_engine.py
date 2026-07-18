@@ -1,107 +1,82 @@
 import asyncio
 import structlog
-import time
-from collections import deque
-from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 
-from app.config.settings import Settings
 from app.database import get_db
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/cpp-engine", tags=["cpp_engine"])
 
-# Ring buffer of recent C++ stdout lines (shared across requests)
-_log_buffer: deque = deque(maxlen=500)
+SYSTEMD_SERVICE = "trading-notifier-engine.service"
 
 
-async def _pipe_stdout(proc: asyncio.subprocess.Process) -> None:
-    """Read and log the C++ engine's stdout until the process exits."""
-    if not proc.stdout:
-        return
-    while True:
-        line = await proc.stdout.readline()
-        if not line:
-            break
-        decoded = line.decode("utf-8", errors="replace").rstrip()
-        logger.info("cpp_engine", line=decoded)
-        _log_buffer.append(decoded)
+async def _run_cmd(*args: str) -> tuple[int, str, str]:
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    return proc.returncode or 0, stdout.decode(), stderr.decode()
 
 
-async def _stop_engine(app_state) -> None:
-    """Terminate the C++ engine subprocess with SIGTERM, force kill after 5s."""
-    engine = getattr(app_state, "cpp_engine", None)
-    if not engine or not engine.get("process"):
-        return
-    proc = engine["process"]
-    if proc.returncode is not None:
-        app_state.cpp_engine = None
-        return
-    logger.info("stopping_cpp_engine", pid=proc.pid)
-    proc.terminate()
-    try:
-        await asyncio.wait_for(proc.wait(), timeout=5)
-    except asyncio.TimeoutError:
-        logger.warning("cpp_engine_kill", pid=proc.pid)
-        proc.kill()
-        await proc.wait()
-    app_state.cpp_engine = None
-    logger.info("cpp_engine_stopped")
+async def _systemctl_active() -> bool:
+    rc, out, _ = await _run_cmd("systemctl", "is-active", SYSTEMD_SERVICE)
+    return rc == 0 and out.strip() == "active"
+
+
+async def _systemctl_pid() -> int | None:
+    rc, out, _ = await _run_cmd(
+        "systemctl", "show", SYSTEMD_SERVICE, "--property=MainPID", "--value"
+    )
+    if rc == 0:
+        pid = int(out.strip())
+        return pid if pid > 0 else None
+    return None
 
 
 @router.post("/start")
 async def start_engine(request: Request):
-    """Launch the C++ signal engine as a subprocess."""
-    engine = getattr(request.app.state, "cpp_engine", None)
-    if engine and engine.get("process") and engine["process"].returncode is None:
-        raise HTTPException(status_code=409, detail="Engine already running")
+    if await _systemctl_active():
+        pid = await _systemctl_pid()
+        return {"ok": True, "pid": pid, "message": "Already running"}
 
-    settings: Settings = request.app.state._settings
-    binary = settings.CPP_ENGINE_BINARY
-    config = settings.CPP_ENGINE_CONFIG
+    rc, out, err = await _run_cmd("sudo", "systemctl", "start", SYSTEMD_SERVICE)
+    if rc != 0:
+        raise Exception(f"systemctl start failed: {err.strip() or out.strip()}")
 
-    if not Path(binary).is_file():
-        raise HTTPException(
-            status_code=500,
-            detail=f"C++ engine binary not found: {binary}. Build it first with cmake.",
-        )
-
-    proc = await asyncio.create_subprocess_exec(
-        binary, config,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,
-    )
-
-    request.app.state.cpp_engine = {
-        "process": proc,
-        "started_at": time.monotonic(),
-    }
-
-    asyncio.create_task(_pipe_stdout(proc))
-
-    logger.info("cpp_engine_started", pid=proc.pid, binary=binary)
-    return {"ok": True, "pid": proc.pid}
+    await asyncio.sleep(0.5)
+    pid = await _systemctl_pid()
+    logger.info("cpp_engine_started_via_systemd", pid=pid)
+    return {"ok": True, "pid": pid}
 
 
 @router.post("/stop")
 async def stop_engine(request: Request):
-    """Stop the C++ engine subprocess (SIGTERM, kill after 5s)."""
-    await _stop_engine(request.app.state)
+    if not await _systemctl_active():
+        return {"ok": True, "message": "Already stopped"}
+
+    rc, out, err = await _run_cmd("sudo", "systemctl", "stop", SYSTEMD_SERVICE)
+    if rc != 0:
+        raise Exception(f"systemctl stop failed: {err.strip() or out.strip()}")
+
+    logger.info("cpp_engine_stopped_via_systemd")
     return {"ok": True}
 
 
 @router.get("/logs")
 async def engine_logs():
-    """Return the most recent C++ engine stdout lines."""
-    lines = list(_log_buffer)
+    rc, out, _ = await _run_cmd("journalctl", "-u", SYSTEMD_SERVICE, "-n", "100", "--no-pager", "-o", "cat")
+    if rc != 0:
+        return {"lines": []}
+    lines = [l for l in out.split("\n") if l.strip()]
     return {"lines": lines}
 
 
 @router.get("/signals")
 async def engine_signals():
-    """Return the last 50 analyses triggered by the C++ engine."""
     db = get_db()
     rows = db.execute(
         "SELECT id, chart_name, timestamp, score, direction, entry, signal_json, sent "
@@ -124,16 +99,20 @@ async def engine_signals():
 
 @router.get("/status")
 async def engine_status(request: Request):
-    """Return whether the C++ engine is running, its PID, uptime, and last signal from DB."""
-    engine = getattr(request.app.state, "cpp_engine", None)
-    proc = engine.get("process") if engine else None
-    running = proc is not None and proc.returncode is None
-    pid = proc.pid if running else None
+    running = await _systemctl_active()
+    pid = await _systemctl_pid() if running else None
     uptime = None
-    if running and engine and engine.get("started_at"):
-        uptime = int(time.monotonic() - engine["started_at"])
 
-    # Last signal stored in DB (from /trigger)
+    if running and pid:
+        rc, out, _ = await _run_cmd("systemctl", "show", SYSTEMD_SERVICE, "--property=ActiveEnterTimestamp", "--value")
+        if rc == 0 and out.strip():
+            try:
+                from datetime import datetime
+                started = datetime.fromisoformat(out.strip())
+                uptime = int((datetime.now() - started).total_seconds())
+            except Exception:
+                pass
+
     db = get_db()
     row = db.execute(
         "SELECT chart_name, timestamp, score, direction, entry, signal_json "

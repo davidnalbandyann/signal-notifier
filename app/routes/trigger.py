@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from app.config.settings import Settings
 from app.database import get_db
-from app.models.schemas import Direction
+from app.models.schemas import AnalysisResult, Direction
 from app.state import set_last_scan
 
 logger = structlog.get_logger(__name__)
@@ -47,15 +47,15 @@ def _signal_caption(body: dict) -> str:
     parts = [f"🤖 <b>C++ Trigger: {direction}</b>"]
     if entry:
         parts.append(f"@{entry}")
-    bw = extra.get("bandwidth")
-    if bw is not None:
-        parts.append(f"BW {bw:.4f}")
+    dist = extra.get("distance_pct")
+    if dist is not None:
+        parts.append(f"Dist {dist*100:.2f}%")
     vr = extra.get("volume_ratio")
     if vr is not None:
         parts.append(f"VolR {vr:.2f}")
-    rsi_val = extra.get("rsi")
-    if rsi_val is not None:
-        parts.append(f"RSI {rsi_val:.1f}")
+    zt = extra.get("zone_type")
+    if zt is not None:
+        parts.append(zt.capitalize())
 
     return " | ".join(parts) + "\n"
 
@@ -71,7 +71,7 @@ async def trigger_signal(body: dict, request: Request):
         "direction": "long",
         "entry_price": 68350.0,
         "timeframe": "15m",
-        "extra": {"bandwidth": 0.028, "volume_ratio": 1.8, "rsi": 56.4}
+        "extra": {"distance_pct": 0.018, "volume_ratio": 2.3, "zone_level": 68500, "zone_type": "support"}
     }
 
     Returns:
@@ -96,50 +96,59 @@ async def trigger_signal(body: dict, request: Request):
     name, url = _resolve_chart(symbol, timeframe)
     logger.info("trigger_received", symbol=symbol, direction=direction, entry=entry_price)
 
-    # Capture screenshot + AI analysis
-    browser = request.app.state.browser
-    nvidia = request.app.state.nvidia
-    telegram = request.app.state.telegram
-
-    try:
-        screenshot = await browser.capture(name, url)
-        analysis = await nvidia.analyze(screenshot)
-    except Exception as e:
-        logger.error("trigger_pipeline_failed", symbol=symbol, error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-    # Load threshold from DB setting or defaults
     db = get_db()
-    row = db.execute("SELECT value FROM settings WHERE key = ?", ("NOTIFICATION_THRESHOLD",)).fetchone()
-    threshold = float(row["value"]) if row else settings.NOTIFICATION_THRESHOLD
+    telegram = request.app.state.telegram
 
     # Check if C++ bypass AI gate is enabled
     bypass_row = db.execute("SELECT value FROM settings WHERE key = ?", ("CPP_BYPASS_AI",)).fetchone()
     cpp_bypass = bypass_row and bypass_row["value"].lower() in ("true", "1", "yes")
 
-    if cpp_bypass:
-        if direction.upper() in ("LONG", "SHORT", "NEUTRAL"):
-            analysis.direction = Direction(direction.upper())
-        if entry_price:
-            analysis.entry = str(entry_price)
-        if not analysis.reason or analysis.reason == "Analysis failed due to an error":
-            analysis.reason = f"C++ triggered {direction.upper()} signal @ {entry_price}"
-        bw = float(extra.get("bandwidth", 0.03))
-        vr = float(extra.get("volume_ratio", 1.5))
-        rsi = float(extra.get("rsi", 50))
-        score = (1 - min(bw, 0.03) / 0.03) * 3 \
-              + (min(vr, 4.0) / 1.5 - 1) * 3 \
-              + max(0.0, (rsi - 50) / 30) * 4
-        analysis.score = round(min(10.0, max(0.0, score)), 1)
+    browser = request.app.state.browser
+    try:
+        screenshot = await browser.capture(name, url)
+    except Exception as e:
+        logger.warning("trigger_screenshot_failed", symbol=symbol, error=str(e))
+        screenshot = b""
 
-    sent = cpp_bypass or (analysis.score >= threshold and analysis.direction.value != "NEUTRAL")
+    if cpp_bypass:
+        analysis = AnalysisResult(
+            score=0.0,
+            direction=Direction(direction.upper()) if direction.upper() in ("LONG", "SHORT", "NEUTRAL") else Direction.NEUTRAL,
+            reason=f"C++ triggered {direction.upper()} signal @ {entry_price}" if entry_price else f"C++ triggered {direction.upper()} signal",
+            entry=str(entry_price) if entry_price else None,
+            stop_loss=None,
+            take_profit=None,
+            error=None,
+        )
+        distance = float(extra.get("distance_pct", 0.03))
+        vr = float(extra.get("volume_ratio", 1.5))
+        zone_type = extra.get("zone_type", "")
+        d_score = (1 - min(distance, 0.03) / 0.03) * 3
+        v_score = (min(vr, 4.0) / 1.5 - 1) * 3
+        z_score = 2 if (direction.upper() == "LONG" and zone_type == "support") or (direction.upper() == "SHORT" and zone_type == "resistance") else 0
+        score = d_score + v_score + z_score
+        analysis.score = round(min(10.0, max(0.0, score)), 1)
+    else:
+        nvidia = request.app.state.nvidia
+        try:
+            analysis = await nvidia.analyze(screenshot)
+        except Exception as e:
+            logger.error("trigger_pipeline_failed", symbol=symbol, error=str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+    # Load threshold from DB setting or defaults
+    row = db.execute("SELECT value FROM settings WHERE key = ?", ("NOTIFICATION_THRESHOLD",)).fetchone()
+    threshold = float(row["value"]) if row else settings.NOTIFICATION_THRESHOLD
+
+    sent = analysis.score >= threshold and analysis.direction.value != "NEUTRAL"
 
     # Persist to DB (mirrors scheduler._process_chart)
     now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
     screenshot_filename = f"{name.replace('/', '_')}_{int(time.time())}.png"
     screenshot_path = Path("data/screenshots") / screenshot_filename
     screenshot_path.parent.mkdir(parents=True, exist_ok=True)
-    screenshot_path.write_bytes(screenshot)
+    if screenshot:
+        screenshot_path.write_bytes(screenshot)
 
     signal_json = json.dumps(body)
 
@@ -149,7 +158,7 @@ async def trigger_signal(body: dict, request: Request):
         (
             name, now, analysis.score, analysis.direction.value,
             analysis.reason, analysis.entry, analysis.stop_loss,
-            analysis.take_profit, int(sent), screenshot_filename,
+            analysis.take_profit, int(sent), screenshot_filename if screenshot else None,
             analysis.error, signal_json,
         ),
     )
@@ -157,7 +166,7 @@ async def trigger_signal(body: dict, request: Request):
 
     if sent:
         extra_caption = _signal_caption(body)
-        await telegram.notify(name, analysis, screenshot, extra_caption=extra_caption)
+        await telegram.notify(name, analysis, screenshot or None, extra_caption=extra_caption)
         db.execute(
             "INSERT INTO notifications (analysis_id, chart_name, timestamp, score, direction, status, caption) "
             "VALUES (?, ?, ?, ?, ?, 'sent', ?)",
