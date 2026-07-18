@@ -50,12 +50,16 @@ async def get_settings(request: Request):
 async def update_settings(body: dict):
     db = get_db()
     for key, value in body.items():
-        if key in EDITABLE_KEYS:
-            db.execute(
-                "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-                (key, str(value)),
-            )
+        if key not in EDITABLE_KEYS:
+            continue
+        str_val = str(value)
+        if key in SECRET_KEYS and _is_masked(str_val):
+            continue
+        db.execute(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, datetime('now')) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (key, str_val),
+        )
     db.commit()
     return {"ok": True}
 
@@ -69,6 +73,10 @@ def _mask_value(key: str, val):
     if key in SECRET_KEYS and isinstance(val, str) and len(val) > 4:
         return "*" * (len(val) - 4) + val[-4:]
     return val
+
+
+def _is_masked(val: str) -> bool:
+    return val.startswith("*") and val.count("*") >= len(val) - 4
 
 
 def _cast_value(key: str, val: str):

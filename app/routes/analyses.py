@@ -1,8 +1,12 @@
 import base64
+import structlog
+import time
 from pathlib import Path
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request, HTTPException
 from fastapi.responses import Response, FileResponse
 from app.database import get_db
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/analyses", tags=["analyses"])
 
@@ -100,13 +104,123 @@ async def delete_analysis(analysis_id: int):
 
 
 @router.post("/{analysis_id}/resend")
-async def resend_analysis(analysis_id: int):
+async def resend_analysis(analysis_id: int, request: Request):
+    telegram = getattr(request.app.state, "telegram", None)
+    if telegram is None:
+        raise HTTPException(status_code=503, detail="Telegram service not available")
+
+    db = get_db()
+    row = db.execute(
+        "SELECT a.*, (SELECT n.id FROM notifications n WHERE n.analysis_id = a.id ORDER BY n.id DESC LIMIT 1) AS notification_id "
+        "FROM analyses a WHERE a.id = ?", (analysis_id,)
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    screenshot_bytes = _load_screenshot_bytes(row)
+
+    from app.models.schemas import AnalysisResult, Direction
+    analysis = AnalysisResult(
+        score=row["score"],
+        direction=Direction(row["direction"]),
+        reason=row["reason"],
+        entry=row["entry"],
+        stop_loss=row["stop_loss"],
+        take_profit=row["take_profit"],
+    )
+
+    try:
+        await telegram.notify(row["chart_name"], analysis, screenshot_bytes)
+    except Exception as e:
+        logger.error("resend_failed", analysis_id=analysis_id, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to resend: {e}")
+
+    caption = _format_caption_text(row["chart_name"], analysis)
+    db.execute(
+        "INSERT INTO notifications (analysis_id, chart_name, timestamp, score, direction, status, caption) "
+        "VALUES (?, ?, datetime('now'), ?, ?, 'resent', ?)",
+        (analysis_id, row["chart_name"], row["score"], row["direction"], caption),
+    )
+    db.commit()
+    logger.info("analysis_resent", analysis_id=analysis_id)
     return {"ok": True}
 
 
 @router.post("/{analysis_id}/reanalyze")
-async def reanalyze_analysis(analysis_id: int):
+async def reanalyze_analysis(analysis_id: int, request: Request):
+    nvidia = getattr(request.app.state, "nvidia", None)
+    if nvidia is None:
+        raise HTTPException(status_code=503, detail="AI service not available")
+
+    db = get_db()
+    row = db.execute("SELECT * FROM analyses WHERE id = ?", (analysis_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    screenshot_bytes = _load_screenshot_bytes(row)
+    if screenshot_bytes is None:
+        raise HTTPException(status_code=404, detail="Screenshot not found for reanalysis")
+
+    try:
+        new_analysis = await nvidia.analyze(screenshot_bytes)
+    except Exception as e:
+        logger.error("reanalyze_failed", analysis_id=analysis_id, error=str(e))
+        raise HTTPException(status_code=500, detail=f"Reanalysis failed: {e}")
+
+    db.execute(
+        "UPDATE analyses SET score = ?, direction = ?, reason = ?, entry = ?, stop_loss = ?, "
+        "take_profit = ?, error = ? WHERE id = ?",
+        (
+            new_analysis.score, new_analysis.direction.value, new_analysis.reason,
+            new_analysis.entry, new_analysis.stop_loss, new_analysis.take_profit,
+            new_analysis.error, analysis_id,
+        ),
+    )
+    db.commit()
+    logger.info(
+        "analysis_reanalyzed",
+        analysis_id=analysis_id,
+        new_score=new_analysis.score,
+        new_direction=new_analysis.direction.value,
+    )
     return {"ok": True}
+
+
+def _load_screenshot_bytes(row) -> bytes | None:
+    screenshot_val = row["screenshot"] if "screenshot" in row.keys() else None
+    if not screenshot_val:
+        return None
+    if screenshot_val.endswith(".png"):
+        file_path = Path("data/screenshots") / screenshot_val
+        if file_path.is_file():
+            return file_path.read_bytes()
+    try:
+        return base64.b64decode(screenshot_val)
+    except Exception:
+        return None
+
+
+def _format_caption_text(name: str, analysis) -> str:
+    prefix = (
+        f"<b>{name}</b>\n\n"
+        f"Score: <b>{analysis.score}/10</b>\n"
+        f"Direction: <b>{analysis.direction.value}</b>\n\n"
+    )
+    suffix_parts = []
+    if analysis.entry:
+        suffix_parts.append(f"Entry: {analysis.entry}")
+    if analysis.stop_loss:
+        suffix_parts.append(f"Stop Loss: {analysis.stop_loss}")
+    if analysis.take_profit:
+        suffix_parts.append(f"Take Profit: {analysis.take_profit}")
+    suffix = "\n".join(suffix_parts)
+    if suffix:
+        suffix = "\n" + suffix
+    reason = analysis.reason
+    max_reason_len = 1024 - len(prefix) - len(suffix) - 1
+    if max_reason_len > 0 and len(reason) > max_reason_len:
+        reason = reason[:max_reason_len - 3] + "..."
+    return f"{prefix}Reason: {reason}{suffix}"
 
 
 def _analysis_row(r) -> dict:

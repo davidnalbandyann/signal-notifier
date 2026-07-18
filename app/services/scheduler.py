@@ -128,10 +128,12 @@ class SchedulerService:
 
         db = get_db()
         row = db.execute("SELECT value FROM settings WHERE key = ?", ("NOTIFICATION_THRESHOLD",)).fetchone()
+        threshold = self.settings.NOTIFICATION_THRESHOLD
         if row:
-            threshold = float(row["value"])
-        else:
-            threshold = self.settings.NOTIFICATION_THRESHOLD
+            try:
+                threshold = float(row["value"])
+            except (ValueError, TypeError):
+                logger.warning("invalid_threshold_setting", value=row["value"])
         sent = analysis.score >= threshold and analysis.direction.value != "NEUTRAL"
 
         db = get_db()

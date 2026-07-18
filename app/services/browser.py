@@ -68,6 +68,7 @@ class BrowserService:
         )
 
     async def _capture_once(self, url: str) -> bytes:
+        context: BrowserContext | None = None
         if self._persistent_context:
             page: Page = await self._persistent_context.new_page()
         else:
@@ -92,7 +93,7 @@ class BrowserService:
             return screenshot_bytes
         finally:
             await page.close()
-            if not self._persistent_context and context:
+            if context:
                 await context.close()
 
     async def stop(self) -> None:
