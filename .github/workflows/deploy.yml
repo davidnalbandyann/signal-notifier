@@ -13,8 +13,7 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install SSH key
         run: |
@@ -38,50 +37,29 @@ jobs:
             -e "ssh -i ~/.ssh/id_ed25519" \
             ./ root@${{ vars.VPS_HOST || '91.98.31.30' }}:/home/tcm/trading-notifier/
 
-      - name: Build & restart on VPS
+      - name: Fix permissions
         run: |
-          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} <<'REMOTE'
-            set -e
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "chown -R tcm:tcm /home/tcm/trading-notifier"
 
-            echo "--- Fixing permissions ---"
-            chown -R tcm:tcm /home/tcm/trading-notifier
+      - name: Install Python deps
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "su - tcm -c 'cd /home/tcm/trading-notifier && source .venv/bin/activate && pip install -q -r requirements.txt'"
 
-            echo "--- Installing Python deps ---"
-            su - tcm -c "
-              cd /home/tcm/trading-notifier
-              source .venv/bin/activate
-              pip install -q -r requirements.txt
-            "
+      - name: Build frontend
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "su - tcm -c 'cd /home/tcm/trading-notifier/frontend && npm install --silent && npm run build'"
 
-            echo "--- Building frontend ---"
-            su - tcm -c "
-              cd /home/tcm/trading-notifier/frontend
-              npm install --silent
-              npm run build
-            "
+      - name: Build C++ engine
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "if [ -d /home/tcm/trading-notifier/trading-signal-engine/build ]; then su - tcm -c 'cd /home/tcm/trading-notifier && cmake --build trading-signal-engine/build -j\$(nproc)'; fi"
 
-            echo "--- Building C++ engine ---"
-            if [ -d /home/tcm/trading-notifier/trading-signal-engine/build ]; then
-              su - tcm -c "
-                cd /home/tcm/trading-notifier
-                cmake --build trading-signal-engine/build -j\$(nproc)
-              "
-            else
-              echo "C++ engine build dir missing, skipping"
-            fi
+      - name: Restart services
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "systemctl daemon-reload && systemctl restart trading-notifier-api && sleep 2 && systemctl restart trading-notifier-engine"
 
-            echo "--- Restarting services ---"
-            systemctl daemon-reload
-            systemctl restart trading-notifier-api
-            sleep 2
-            systemctl restart trading-notifier-engine
-
-            echo "--- Health check ---"
-            sleep 3
-            curl -sf http://127.0.0.1:8000/health && echo "Health: OK" || echo "Health: FAILED"
-            systemctl is-active --quiet trading-notifier-api && echo "API: active" || echo "API: FAILED"
-            systemctl is-active --quiet trading-notifier-engine && echo "Engine: active" || echo "Engine: FAILED"
-          REMOTE
+      - name: Health check
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "sleep 3 && curl -sf http://127.0.0.1:8000/health && echo 'Health: OK' || echo 'Health: FAILED' && systemctl is-active --quiet trading-notifier-api && echo 'API: active' || echo 'API: FAILED' && systemctl is-active --quiet trading-notifier-engine && echo 'Engine: active' || echo 'Engine: FAILED'"
 
       - name: Cleanup
         if: always()
