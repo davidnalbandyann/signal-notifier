@@ -52,6 +52,10 @@ const paths: Record<string, string> = {
   filter: 'M22 3H2l8 9.5V19l4 2v-8.5L22 3z',
   sort: 'M3 6h18M6 12h12M10 18h4',
   download: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3',
+  menu: 'M3 6h18M3 12h18M3 18h18',
+  search: 'M14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM21 21l-6-6',
+  signal: 'M22 12A10 10 0 1 1 12 2M22 2l-10 10M14 2h6v6',
+  target: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
 }
 
 const d = paths[props.name] || ''

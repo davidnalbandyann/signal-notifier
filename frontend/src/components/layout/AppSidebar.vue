@@ -56,6 +56,10 @@ async function runScan() {
   finally { actionLoading.value = null }
 }
 
+function onNavClick() {
+  app.closeMobileSidebar()
+}
+
 onMounted(() => {
   syncRun()
   poll = setInterval(syncRun, 8000)
@@ -64,7 +68,10 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
 </script>
 
 <template>
-  <aside :class="['sidebar', { collapsed: app.sidebarCollapsed }]">
+  <Teleport to="body" v-if="app.mobileSidebarOpen">
+    <div class="mobile-backdrop" @click="app.closeMobileSidebar()"></div>
+  </Teleport>
+  <aside :class="['sidebar', { collapsed: app.sidebarCollapsed, 'mobile-open': app.mobileSidebarOpen }]">
     <div class="brand">
       <div class="mark">TC</div>
       <div class="brand-text">
@@ -80,8 +87,9 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
         :to="item.path"
         :class="['nav-item', { active: isActive(item.path) }]"
         :title="item.label"
+        @click="onNavClick"
       >
-        <AppIcon :name="item.icon" :size="17" class="nav-ic" />
+        <AppIcon :name="item.icon" :size="18" class="nav-ic" />
         <span class="nav-lbl">{{ item.label }}</span>
       </router-link>
     </nav>
@@ -128,7 +136,7 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   border-right: 1px solid var(--border);
   overflow: hidden;
   width: var(--sidebar-w);
-  transition: width .22s var(--ease);
+  transition: width var(--speed-slow) var(--ease);
   flex-shrink: 0;
 }
 .sidebar.collapsed { width: var(--sidebar-w-c); }
@@ -154,6 +162,7 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   font: 700 11px var(--font-mono);
   letter-spacing: 0.04em;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px oklch(64% 0.19 263 / 0.25);
 }
 .brand-text { min-width: 0; overflow: hidden; }
 .brand-name {
@@ -182,14 +191,14 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   display: flex;
   align-items: center;
   gap: 11px;
-  padding: 8px 11px;
+  padding: 9px 11px;
   border-radius: var(--radius);
   color: var(--fg-2);
   text-decoration: none;
   font: 500 13px var(--font-sans);
   white-space: nowrap;
   position: relative;
-  transition: background .12s var(--ease), color .12s;
+  transition: background var(--speed-fast) var(--ease), color var(--speed-fast);
 }
 .nav-item:hover { background: var(--surface); color: var(--fg); }
 .nav-item.active { background: var(--accent-soft); color: var(--accent); }
@@ -203,13 +212,13 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   background: var(--accent);
   border-radius: 0 2px 2px 0;
 }
-.nav-ic { color: var(--muted); flex-shrink: 0; transition: color .12s; }
+.nav-ic { color: var(--muted); flex-shrink: 0; transition: color var(--speed-fast); }
 .nav-item:hover .nav-ic { color: var(--fg-2); }
 .nav-item.active .nav-ic { color: var(--accent); }
 
 .nav-lbl, .brand-text, .foot-lbl {
   opacity: 1;
-  transition: opacity .15s var(--ease);
+  transition: opacity 0.15s var(--ease);
 }
 .sidebar.collapsed .nav-lbl,
 .sidebar.collapsed .brand-text,
@@ -240,7 +249,7 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   font: 600 12px var(--font-sans);
   cursor: pointer;
   white-space: nowrap;
-  transition: background .12s, border-color .12s, color .12s;
+  transition: background var(--speed-fast), border-color var(--speed-fast), color var(--speed-fast);
   width: 100%;
   position: relative;
 }
@@ -282,10 +291,39 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   border-radius: var(--radius);
   font: 500 11px var(--font-mono);
   letter-spacing: 0.04em;
-  transition: color .12s, background .12s;
+  transition: color var(--speed-fast), background var(--speed-fast);
   white-space: nowrap;
 }
 .foot-toggle:hover { color: var(--fg-2); background: var(--surface); }
 .sidebar.collapsed .foot-toggle svg { transform: rotate(180deg); }
-.foot-toggle svg { transition: transform .22s var(--ease); }
+.foot-toggle svg { transition: transform var(--speed-slow) var(--ease); }
+
+/* Mobile overlay */
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: oklch(0% 0 0 / 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: backdrop-in 0.25s var(--ease-out);
+}
+@keyframes backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 60;
+    transform: translateX(-100%);
+    transition: transform var(--speed-slow) var(--ease-out);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+}
 </style>

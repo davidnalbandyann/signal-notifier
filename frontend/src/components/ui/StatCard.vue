@@ -35,7 +35,10 @@ defineProps<{
   flex-direction: column;
   gap: 8px;
   min-width: 0;
-  position: relative;
+  transition: border-color var(--speed-fast), box-shadow var(--speed-normal);
+}
+.stat:hover {
+  border-color: var(--border-2);
 }
 .head {
   display: flex;

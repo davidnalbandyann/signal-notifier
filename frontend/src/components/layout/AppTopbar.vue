@@ -23,6 +23,14 @@ function logout() {
 
 <template>
   <header class="topbar">
+    <button
+      class="mobile-menu icon-btn"
+      @click="app.openMobileSidebar()"
+      aria-label="Open navigation menu"
+    >
+      <AppIcon name="menu" :size="16" />
+    </button>
+
     <div class="crumbs">
       <span class="crumb-root">MONITOR</span>
       <span class="crumb-sep">/</span>
@@ -74,6 +82,10 @@ function logout() {
 }
 [data-theme="light"] .topbar { background: oklch(99% 0.002 250 / 0.85); }
 
+.mobile-menu {
+  display: none;
+}
+
 .crumbs {
   display: flex;
   align-items: center;
@@ -101,7 +113,9 @@ function logout() {
   border-radius: 999px;
   background: var(--surface);
   border: 1px solid var(--border);
+  transition: border-color var(--speed-fast);
 }
+.user:hover { border-color: var(--border-2); }
 .avatar {
   width: 22px;
   height: 22px;
@@ -120,7 +134,9 @@ function logout() {
 .icon-btn.sm { width: 24px; height: 24px; }
 .icon-btn.sm.logout:hover { color: var(--red); background: var(--red-soft); border-color: transparent; }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
+  .mobile-menu { display: grid; }
   .user-meta { display: none; }
+  .crumbs .crumb-root { display: none; }
 }
 </style>

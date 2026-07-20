@@ -49,7 +49,12 @@ const iconName = computed(() => ({
   background: var(--surface);
   color: var(--fg);
   max-width: 360px;
+  min-width: 200px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: oklch(23% 0.016 264 / 0.95);
 }
+[data-theme="light"] .toast { background: oklch(100% 0 0 / 0.95); }
 .toast .msg { flex: 1; }
 .toast.success { border-color: var(--green); color: var(--green); }
 .toast.success .msg { color: var(--fg); }

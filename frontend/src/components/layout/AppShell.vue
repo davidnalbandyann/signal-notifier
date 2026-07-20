@@ -7,7 +7,7 @@ const app = useAppStore()
 </script>
 
 <template>
-  <div :class="['shell', { collapsed: app.sidebarCollapsed }]">
+  <div :class="['shell', { collapsed: app.sidebarCollapsed, 'mobile-open': app.mobileSidebarOpen }]">
     <AppSidebar />
     <div class="main">
       <AppTopbar />
@@ -23,7 +23,7 @@ const app = useAppStore()
   display: grid;
   grid-template-columns: var(--sidebar-w) 1fr;
   height: 100vh;
-  transition: grid-template-columns .22s var(--ease);
+  transition: grid-template-columns var(--speed-slow) var(--ease);
 }
 .shell.collapsed {
   grid-template-columns: var(--sidebar-w-c) 1fr;
@@ -40,8 +40,7 @@ const app = useAppStore()
   overflow-x: hidden;
   padding: 22px 28px 56px;
 }
-@media (max-width: 720px) {
-  .page { padding: 16px 14px 40px; }
+@media (max-width: 768px) {
   .shell, .shell.collapsed { grid-template-columns: 0 1fr; }
 }
 </style>

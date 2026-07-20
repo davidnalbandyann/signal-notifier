@@ -56,8 +56,8 @@ async function onEnter() {
   position: fixed;
   inset: 0;
   background: oklch(0% 0 0 / 0.55);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: var(--z-modal);
   display: grid;
   place-items: center;
@@ -84,16 +84,23 @@ async function onEnter() {
   font: 600 14px var(--font-sans);
   letter-spacing: -0.005em;
 }
-.modal-enter-active, .modal-leave-active {
-  transition: opacity .15s var(--ease);
-}
-.modal-enter-active .modal, .modal-leave-active .modal {
-  transition: transform .18s var(--ease-out), opacity .15s var(--ease);
-}
+.modal-enter-active { transition: opacity 0.2s var(--ease); }
+.modal-leave-active { transition: opacity 0.15s var(--ease); }
+.modal-enter-active .modal { transition: transform 0.25s var(--ease-out), opacity 0.2s var(--ease); }
+.modal-leave-active .modal { transition: transform 0.15s var(--ease-in), opacity 0.15s var(--ease); }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
-.modal-enter-from .modal, .modal-leave-to .modal {
-  transform: translateY(8px) scale(.98);
+.modal-enter-from .modal {
+  transform: translateY(12px) scale(0.97);
+  opacity: 0;
+}
+.modal-leave-to .modal {
+  transform: translateY(-6px) scale(0.98);
   opacity: 0;
 }
 .icon-btn.sm { width: 28px; height: 28px; }
+
+@media (max-width: 480px) {
+  .modal-back { padding: 12px; align-items: flex-end; }
+  .modal { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+}
 </style>

@@ -27,7 +27,7 @@ const signalsLoading = ref(true)
 let logTimer: ReturnType<typeof setInterval> | null = null
 
 function fmtUptime(s: number | null) {
-  if (s == null) return '—'
+  if (s == null) return '\u2014'
   const h = Math.floor(s / 3600)
   const m = Math.floor((s % 3600) / 60)
   const r = Math.floor(s % 60)
@@ -37,16 +37,16 @@ function fmtUptime(s: number | null) {
 }
 
 function cppExtra(s: any): string[] {
-  if (!s?.signal_json) return ['—', '—', '—']
+  if (!s?.signal_json) return ['\u2014', '\u2014', '\u2014']
   try {
     const j = typeof s.signal_json === 'string' ? JSON.parse(s.signal_json) : s.signal_json
     const e = j.extra || {}
     return [
-      e.bandwidth != null ? Number(e.bandwidth).toFixed(4).replace(/^0\./, '.') : '—',
-      e.volume_ratio != null ? Number(e.volume_ratio).toFixed(2) : '—',
-      e.rsi != null ? Number(e.rsi).toFixed(1) : '—',
+      e.bandwidth != null ? Number(e.bandwidth).toFixed(4).replace(/^0\./, '.') : '\u2014',
+      e.volume_ratio != null ? Number(e.volume_ratio).toFixed(2) : '\u2014',
+      e.rsi != null ? Number(e.rsi).toFixed(1) : '\u2014',
     ]
-  } catch { return ['—', '—', '—'] }
+  } catch { return ['\u2014', '\u2014', '\u2014'] }
 }
 
 async function loadStatus() {
@@ -114,10 +114,9 @@ loadSignals()
         <PulseIndicator :state="status?.running ? 'running' : 'stopped'" />
       </header>
 
-      <AppLoading v-if="loading" label="Loading engine status…" />
+      <AppLoading v-if="loading" label="Loading engine status\u2026" />
 
       <template v-else>
-        <!-- Status + control -->
         <section class="card status-bar">
           <div class="status-left">
             <PulseIndicator :state="status?.running ? 'running' : 'stopped'" />
@@ -125,7 +124,7 @@ loadSignals()
               <span class="status-label">C++ Signal Engine</span>
               <div class="status-stats mono">
                 <span v-if="status?.pid">PID {{ status.pid }}</span>
-                <span v-if="status?.uptime_seconds" class="sep">·</span>
+                <span v-if="status?.uptime_seconds" class="sep">&middot;</span>
                 <span v-if="status?.uptime_seconds">up {{ fmtUptime(status.uptime_seconds) }}</span>
                 <span v-if="!status?.pid" class="muted">not running</span>
               </div>
@@ -138,25 +137,23 @@ loadSignals()
             :disabled="engineLoading"
           >
             <AppIcon :name="status?.running ? 'pause' : 'play'" :size="13" />
-            <span v-if="engineLoading">…</span>
+            <span v-if="engineLoading">&hellip;</span>
             <span v-else>{{ status?.running ? 'Stop engine' : 'Start engine' }}</span>
           </BaseButton>
         </section>
 
-        <!-- Last signal -->
         <section v-if="lastSignal" class="card last-sig">
           <div class="ls-label eyebrow">Last C++ signal</div>
           <div class="ls-body">
             <span class="ls-sym mono">{{ lastSignal.chart_name }}</span>
             <BaseChip :direction="(lastSignal.direction as any)" dot>{{ lastSignal.direction }}</BaseChip>
             <span v-if="lastSignal.entry" class="ls-entry mono">@ {{ lastSignal.entry }}</span>
-            <span class="ls-sep">·</span>
+            <span class="ls-sep">&middot;</span>
             <span class="ls-score mono">score {{ lastSignal.score }}</span>
             <span class="ls-time mono">{{ formatTime(lastSignal.timestamp) }}</span>
           </div>
         </section>
 
-        <!-- Logs — the anchor while running -->
         <section class="card log-card">
           <div class="card-head">
             <div class="card-title">Engine logs</div>
@@ -168,13 +165,12 @@ loadSignals()
           <div ref="logBox" class="log-viewport">
             <div v-if="logLines.length === 0" class="log-empty">
               <AppIcon name="terminal" :size="22" :stroke="1.5" />
-              <span>{{ status?.running ? 'Waiting for log output…' : 'Start the engine to see logs' }}</span>
+              <span>{{ status?.running ? 'Waiting for log output\u2026' : 'Start the engine to see logs' }}</span>
             </div>
             <pre v-else class="log-pre"><div v-for="(line, i) in logLines" :key="i" class="log-line">{{ line }}</div></pre>
           </div>
         </section>
 
-        <!-- Signal history -->
         <section class="card sig-card">
           <div class="card-head">
             <div class="card-title">Signal history</div>
@@ -205,7 +201,7 @@ loadSignals()
               <span class="c-num mono">{{ cppExtra(s)[0] }}</span>
               <span class="c-num mono">{{ cppExtra(s)[1] }}</span>
               <span class="c-num mono">{{ cppExtra(s)[2] }}</span>
-              <span class="c-entry mono">{{ s.entry || '—' }}</span>
+              <span class="c-entry mono">{{ s.entry || '\u2014' }}</span>
               <span class="c-num mono" :class="s.score >= 7 ? 'high' : s.score >= 5 ? 'mid' : 'low'">{{ s.score.toFixed(1) }}</span>
               <span class="c-time mono">{{ formatTime(s.timestamp) }}</span>
               <span class="c-status"><BaseChip :status="s.sent ? 'sent' : 'fail'">{{ s.sent ? 'SENT' : 'FAILED' }}</BaseChip></span>
@@ -220,11 +216,10 @@ loadSignals()
 
 <style scoped>
 .pg { display: flex; flex-direction: column; gap: 16px; max-width: 1500px; }
-.pg-head { display: flex; align-items: flex-end; gap: 12px; }
+.pg-head { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
 .pg-title { font: 600 18px var(--font-sans); letter-spacing: -0.015em; }
 .pg-sub { font: 400 12px var(--font-mono); color: var(--muted); margin-top: 3px; }
 
-/* Status bar */
 .status-bar { display: flex; align-items: center; gap: 12px; padding: 14px 18px; }
 .status-left { display: flex; align-items: center; gap: 14px; }
 .status-meta { display: flex; flex-direction: column; gap: 2px; }
@@ -232,7 +227,6 @@ loadSignals()
 .status-stats { display: flex; align-items: center; gap: 6px; font: 500 11.5px var(--font-mono); color: var(--fg-2); }
 .status-stats .sep, .status-stats .muted { color: var(--muted-2); }
 
-/* Last signal */
 .last-sig { padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--amber); }
 .ls-label { color: var(--muted); }
 .ls-body { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -242,7 +236,6 @@ loadSignals()
 .ls-score { font: 500 12.5px var(--font-mono); color: var(--fg-2); }
 .ls-time { font: 400 11.5px var(--font-mono); color: var(--muted); margin-left: auto; }
 
-/* Logs */
 .log-card { padding: 0; overflow: hidden; }
 .card-head { padding: 11px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .card-title { font: 600 11px var(--font-mono); letter-spacing: 0.08em; color: var(--fg-2); text-transform: uppercase; }
@@ -296,7 +289,6 @@ loadSignals()
 }
 .log-line:hover { background: oklch(100% 0 0 / 0.03); }
 
-/* Signal history */
 .sig-card { padding: 0; overflow: hidden; }
 .sig-table { display: flex; flex-direction: column; }
 .sig-head, .sig-row {
@@ -317,7 +309,7 @@ loadSignals()
 .sig-row {
   font: 500 12px var(--font-mono);
   border-top: 1px solid var(--border);
-  transition: background .1s;
+  transition: background var(--speed-fast);
 }
 .sig-row:hover { background: var(--surface-2); }
 .c-sym { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

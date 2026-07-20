@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
   const theme = ref<'dark' | 'light'>(
@@ -8,6 +8,7 @@ export const useAppStore = defineStore('app', () => {
   const sidebarCollapsed = ref(
     localStorage.getItem('tcm:sidebar') !== 'expanded'
   )
+  const mobileSidebarOpen = ref(false)
 
   function toggleTheme() {
     theme.value = theme.value === 'dark' ? 'light' : 'dark'
@@ -16,6 +17,19 @@ export const useAppStore = defineStore('app', () => {
   function toggleSidebar() {
     sidebarCollapsed.value = !sidebarCollapsed.value
   }
+
+  function openMobileSidebar() {
+    mobileSidebarOpen.value = true
+  }
+
+  function closeMobileSidebar() {
+    mobileSidebarOpen.value = false
+  }
+
+  const isMobile = computed(() => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth <= 768
+  })
 
   watch(theme, (val) => {
     localStorage.setItem('tcm:theme', val)
@@ -26,5 +40,10 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('tcm:sidebar', val ? 'collapsed' : 'expanded')
   })
 
-  return { theme, toggleTheme, sidebarCollapsed, toggleSidebar }
+  return {
+    theme, toggleTheme,
+    sidebarCollapsed, toggleSidebar,
+    mobileSidebarOpen, openMobileSidebar, closeMobileSidebar,
+    isMobile,
+  }
 })

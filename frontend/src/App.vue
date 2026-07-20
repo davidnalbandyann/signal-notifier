@@ -5,5 +5,9 @@ const app = useAppStore()
 </script>
 
 <template>
-  <router-view />
+  <router-view v-slot="{ Component, route }">
+    <transition :name="(route.meta.transition as string) || 'page'" mode="out-in">
+      <component :is="Component" :key="route.path" />
+    </transition>
+  </router-view>
 </template>
