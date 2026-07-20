@@ -31,8 +31,11 @@ const app = useAppStore()
 .main {
   display: flex;
   flex-direction: column;
-  min-width: 0;
+  grid-column: 2;
+  width: 100%;
+  min-height: 100vh;
   height: 100vh;
+  overflow: hidden;
 }
 .page {
   flex: 1;

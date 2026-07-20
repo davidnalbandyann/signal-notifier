@@ -220,9 +220,9 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   opacity: 1;
   transition: opacity 0.15s var(--ease);
 }
-.sidebar.collapsed .nav-lbl,
-.sidebar.collapsed .brand-text,
-.sidebar.collapsed .foot-lbl {
+.sidebar.collapsed:not(.mobile-open) .nav-lbl,
+.sidebar.collapsed:not(.mobile-open) .brand-text,
+.sidebar.collapsed:not(.mobile-open) .foot-lbl {
   opacity: 0;
   width: 0;
   overflow: hidden;
@@ -318,12 +318,21 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
     left: 0;
     top: 0;
     z-index: 60;
+    width: 0;
     transform: translateX(-100%);
-    transition: transform var(--speed-slow) var(--ease-out);
+    transition: width var(--speed-slow) var(--ease-out), transform var(--speed-slow) var(--ease-out);
     box-shadow: var(--shadow-lg);
   }
+  .sidebar.collapsed {
+    width: 0;
+  }
   .sidebar.mobile-open {
+    width: var(--sidebar-w);
     transform: translateX(0);
+  }
+  /* Hide everything inside when closed on mobile */
+  .sidebar:not(.mobile-open) > * {
+    visibility: hidden;
   }
 }
 </style>
