@@ -15,7 +15,16 @@
       "volume_mult": 1.5,
       "cooldown_candles": 6,
       "recalc_interval": 50,
-      "volume_period": 20
+      "volume_period": 20,
+      "stop_loss_pct": 2.0,
+      "take_profit_pct": 4.0,
+      "wick_threshold_pct": 0.5,
+      "body_weight_pct": 70,
+      "trend_filter_enabled": false,
+      "trend_period": 50,
+      "confirmation_candles": 0,
+      "max_zone_window": 50,
+      "min_zone_volume_mode": "absolute"
     }
   },
   "python_service": {
