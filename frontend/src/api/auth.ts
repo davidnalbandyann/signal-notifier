@@ -2,6 +2,7 @@ import { api } from './client'
 
 export interface LoginResponse {
   token: string
+  username: string
   expires_in: number
 }
 

@@ -1,28 +1,31 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
-import StatusPill from '@/components/ui/StatusPill.vue'
-import BaseChip from '@/components/ui/BaseChip.vue'
+import SignalQualification from '@/components/ui/SignalQualification.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AppToast from '@/components/ui/AppToast.vue'
 import AppLoading from '@/components/ui/AppLoading.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import { getNotifications, deleteNotification } from '@/api/notifications'
 import { useToast } from '@/composables/useToast'
 import { useTimezone } from '@/composables/useTimezone'
+import { useThreshold } from '@/composables/useThreshold'
 import type { Notification } from '@/types'
 
 const router = useRouter()
 const toast = useToast()
 const { formatDate } = useTimezone()
+const { threshold, load: loadThreshold } = useThreshold()
 const items = ref<Notification[]>([])
 const total = ref(0)
 const loading = ref(true)
 const page = ref(1)
 const pageSize = ref(20)
 const actionLoading = ref<number | null>(null)
+const deleteTarget = ref<number | null>(null)
 
 async function load() {
   loading.value = true
@@ -33,7 +36,10 @@ async function load() {
   } catch { toast.err('Failed to load notifications') }
   finally { loading.value = false }
 }
-load()
+onMounted(() => {
+  load()
+  loadThreshold()
+})
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
@@ -43,9 +49,14 @@ function go(analysisId: number) {
 
 async function handleDelete(e: Event, id: number) {
   e.stopPropagation()
-  if (!confirm('Delete this notification record?')) return
+  deleteTarget.value = id
+}
+
+async function confirmDelete() {
+  const id = deleteTarget.value
+  if (id == null) return
   actionLoading.value = id
-  try { await deleteNotification(id); toast.ok('Notification deleted'); await load() }
+  try { await deleteNotification(id); toast.ok('Notification deleted'); deleteTarget.value = null; await load() }
   catch { toast.err('Failed to delete') }
   finally { actionLoading.value = null }
 }
@@ -69,13 +80,19 @@ function fmt(iso: string) {
       <AppLoading v-if="loading" label="Loading signals…" />
 
       <div v-else-if="items.length === 0" class="card empty-card">
-        <EmptyState icon="bell" title="No signals sent yet" description="Notifications appear here when an analysis score crosses the threshold" />
+        <EmptyState
+          icon="bell"
+          title="No signals sent yet"
+          :description="threshold != null
+            ? `Notifications appear here when an analysis score crosses the threshold (${threshold.toFixed(1)})`
+            : 'Notifications appear here when an analysis score crosses the configured threshold'"
+        />
       </div>
 
       <div v-else class="card list-card">
         <div class="list-head">
           <div class="col-msg">Message</div>
-          <div class="col-status">Status</div>
+          <div class="col-qual">Qualification</div>
           <div class="col-time">Sent at</div>
           <div class="col-actions"></div>
         </div>
@@ -88,12 +105,17 @@ function fmt(iso: string) {
           <div class="col-msg">
             <div class="msg-top">
               <span class="sym mono">{{ n.chart_name }}</span>
-              <BaseChip :direction="n.direction" dot>{{ n.direction }}</BaseChip>
             </div>
             <div class="msg-body">{{ n.caption || n.status }}</div>
           </div>
-          <div class="col-status">
-            <StatusPill :status="n.status === 'sent' ? 'ok' : 'error'" />
+          <div class="col-qual">
+            <SignalQualification
+              :score="n.score"
+              :threshold="threshold"
+              :direction="n.direction"
+              :sent="n.status === 'sent'"
+              density="compact"
+            />
           </div>
           <div class="col-time mono">{{ fmt(n.timestamp) }}</div>
           <div class="col-actions" @click.stop>
@@ -123,6 +145,15 @@ function fmt(iso: string) {
       </div>
     </div>
     <AppToast />
+    <ConfirmModal
+      :show="deleteTarget !== null"
+      title="Delete notification"
+      message="Delete this notification record? This cannot be undone."
+      confirm-label="Delete"
+      :loading="actionLoading === deleteTarget"
+      @confirm="confirmDelete"
+      @cancel="deleteTarget = null"
+    />
   </AppShell>
 </template>
 
@@ -138,7 +169,7 @@ function fmt(iso: string) {
 .list-card { padding: 0; overflow: hidden; }
 .list-head, .list-row {
   display: grid;
-  grid-template-columns: 1fr 130px 160px 64px;
+  grid-template-columns: 1fr 320px 160px 64px;
   gap: 12px;
   align-items: center;
   padding: 12px 16px;
@@ -146,7 +177,7 @@ function fmt(iso: string) {
 .list-head {
   background: var(--bg-2);
   border-bottom: 1px solid var(--border);
-  font: 600 10.5px var(--font-mono);
+  font: 600 11px var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -192,6 +223,6 @@ function fmt(iso: string) {
   }
   .col-msg { grid-column: 1; }
   .col-actions { grid-column: 2; }
-  .col-status, .col-time { grid-column: 1 / -1; }
+  .col-qual, .col-time { grid-column: 1 / -1; }
 }
 </style>

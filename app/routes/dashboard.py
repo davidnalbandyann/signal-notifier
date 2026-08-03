@@ -58,15 +58,18 @@ async def get_status(request: Request):
     ).fetchone()
     avg_score = round(row["avg"], 1) if row and row["avg"] else 0.0
 
+    scheduler = getattr(request.app.state, "scheduler", None)
+    settings = getattr(request.app.state, "_settings", None)
+
     recent = db.execute(
         "SELECT * FROM analyses ORDER BY timestamp DESC LIMIT 10"
     ).fetchall()
     recent_analyses = [_analysis_row(r) for r in recent]
 
-    signals = [a for a in recent_analyses if a["score"] >= 8.0]
+    row = db.execute("SELECT value FROM settings WHERE key = 'NOTIFICATION_THRESHOLD'").fetchone()
+    threshold = float(row["value"]) if row else (settings.NOTIFICATION_THRESHOLD if settings else 8.0)
+    signals = [a for a in recent_analyses if a["score"] >= threshold and a["direction"] != "NEUTRAL"]
 
-    scheduler = getattr(request.app.state, "scheduler", None)
-    settings = getattr(request.app.state, "_settings", None)
     interval = settings.CHECK_INTERVAL_SECONDS if settings else 60
     elapsed = asyncio.get_event_loop().time() - get_last_scan_ts()
     next_scan = max(0, int(interval - elapsed)) if get_last_scan_ts() > 0 else interval
@@ -78,6 +81,7 @@ async def get_status(request: Request):
         "analyses_today": analyses_today,
         "signals_sent": signals_sent,
         "avg_score": avg_score,
+        "threshold": threshold,
         "recent_analyses": recent_analyses,
         "signals": signals,
     }

@@ -33,7 +33,7 @@ const tag = computed(() => {
   gap: 5px;
   padding: 2px 8px;
   border-radius: 999px;
-  font: 700 10.5px var(--font-mono);
+  font: 700 11px var(--font-mono);
   letter-spacing: 0.06em;
   white-space: nowrap;
   line-height: 1.5;

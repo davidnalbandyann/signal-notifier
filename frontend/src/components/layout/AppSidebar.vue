@@ -40,8 +40,9 @@ async function togglePause() {
   if (actionLoading.value) return
   actionLoading.value = 'pause'
   try {
-    if (running.value) { await pauseScan(); running.value = false; toast.ok('Scan loop paused') }
-    else { await resumeScan(); running.value = true; toast.ok('Scan loop resumed') }
+    if (running.value) { await pauseScan(); toast.ok('Scan loop paused') }
+    else { await resumeScan(); toast.ok('Scan loop resumed') }
+    await syncRun()
   } catch { toast.err('Failed to toggle scan loop') }
   finally { actionLoading.value = null }
 }
@@ -51,7 +52,7 @@ async function runScan() {
   actionLoading.value = 'scan'
   try {
     await triggerScan()
-    toast.ok('Scan triggered')
+    toast.ok('Scan started')
   } catch { toast.err('Failed to trigger scan') }
   finally { actionLoading.value = null }
 }
@@ -172,7 +173,7 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   white-space: nowrap;
 }
 .brand-sub {
-  font: 500 10.5px var(--font-mono);
+  font: 500 11px var(--font-mono);
   color: var(--muted);
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -201,7 +202,7 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   transition: background var(--speed-fast) var(--ease), color var(--speed-fast);
 }
 .nav-item:hover { background: var(--surface); color: var(--fg); }
-.nav-item.active { background: var(--accent-soft); color: var(--accent); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent-2); }
 .nav-item.active::before {
   content: '';
   position: absolute;
@@ -214,7 +215,7 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
 }
 .nav-ic { color: var(--muted); flex-shrink: 0; transition: color var(--speed-fast); }
 .nav-item:hover .nav-ic { color: var(--fg-2); }
-.nav-item.active .nav-ic { color: var(--accent); }
+.nav-item.active .nav-ic { color: var(--accent-2); }
 
 .nav-lbl, .brand-text, .foot-lbl {
   opacity: 1;
@@ -261,7 +262,7 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   color: var(--accent-fg);
 }
 .foot-btn.primary:hover { background: var(--accent-2); }
-.foot-btn.live { color: var(--green); border-color: oklch(74% 0.17 152 / 0.3); }
+.foot-btn.live { color: var(--green); border-color: var(--glow-soft); }
 .foot-btn.live:hover { color: var(--green); background: var(--green-soft); }
 .foot-dot {
   margin-left: auto;
@@ -273,9 +274,9 @@ onUnmounted(() => { if (poll) clearInterval(poll) })
   flex-shrink: 0;
 }
 @keyframes pulse {
-  0%   { box-shadow: 0 0 0 0 oklch(74% 0.17 152 / 0.5); }
-  70%  { box-shadow: 0 0 0 6px oklch(74% 0.17 152 / 0); }
-  100% { box-shadow: 0 0 0 0 oklch(74% 0.17 152 / 0); }
+  0%   { box-shadow: 0 0 0 0 var(--glow); }
+  70%  { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 .foot-toggle {

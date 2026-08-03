@@ -52,9 +52,9 @@ function logout() {
     </button>
 
     <div class="user">
-      <div class="avatar">DA</div>
+      <div class="avatar">{{ auth.initials }}</div>
       <div class="user-meta">
-        <div class="user-name">david@local</div>
+        <div class="user-name">{{ auth.username ?? 'local' }}</div>
         <div class="user-role">owner</div>
       </div>
       <button class="icon-btn sm logout" @click="logout" title="Log out" aria-label="Log out">
@@ -124,13 +124,13 @@ function logout() {
   color: var(--accent-fg);
   display: grid;
   place-items: center;
-  font: 700 9.5px var(--font-mono);
+  font: 700 11px var(--font-mono);
   letter-spacing: 0.02em;
   flex-shrink: 0;
 }
 .user-meta { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .user-name { font: 600 11.5px var(--font-sans); color: var(--fg); }
-.user-role { font: 500 9.5px var(--font-mono); color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+.user-role { font: 500 11px var(--font-mono); color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
 .icon-btn.sm { width: 24px; height: 24px; }
 .icon-btn.sm.logout:hover { color: var(--red); background: var(--red-soft); border-color: transparent; }
 

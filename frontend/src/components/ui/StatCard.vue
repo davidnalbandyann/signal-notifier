@@ -48,7 +48,7 @@ defineProps<{
 .ic { color: var(--muted); display: grid; place-items: center; }
 .k {
   color: var(--muted);
-  font: 600 10.5px var(--font-mono);
+  font: 600 11px var(--font-mono);
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }

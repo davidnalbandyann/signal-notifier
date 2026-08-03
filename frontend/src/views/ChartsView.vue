@@ -8,6 +8,7 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import AppToast from '@/components/ui/AppToast.vue'
 import AppLoading from '@/components/ui/AppLoading.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import { getCharts, addChart, updateChart, deleteChart } from '@/api/charts'
 import { useToast } from '@/composables/useToast'
 import { useTimezone } from '@/composables/useTimezone'
@@ -28,6 +29,7 @@ const editing = ref<Chart | null>(null)
 const editName = ref('')
 const editUrl = ref('')
 const editEnabled = ref(true)
+const deleteTarget = ref<Chart | null>(null)
 const editLoading = ref(false)
 
 async function load() {
@@ -86,10 +88,16 @@ async function handleEdit() {
 }
 
 async function handleDelete(c: Chart) {
-  if (!confirm(`Delete "${c.name}" from the watchlist?`)) return
+  deleteTarget.value = c
+}
+
+async function confirmDelete() {
+  const c = deleteTarget.value
+  if (!c) return
   try {
     await deleteChart(c.id)
     toast.ok('Chart removed')
+    deleteTarget.value = null
     await load()
   } catch (e: any) {
     toast.err(e?.message || 'Failed to delete chart')
@@ -237,6 +245,14 @@ function fmtDate(iso: string | null) {
     </BaseModal>
 
     <AppToast />
+    <ConfirmModal
+      :show="deleteTarget !== null"
+      title="Remove chart"
+      :message="`Remove &quot;${deleteTarget?.name ?? ''}&quot; from the watchlist?`"
+      confirm-label="Remove"
+      @confirm="confirmDelete"
+      @cancel="deleteTarget = null"
+    />
   </AppShell>
 </template>
 
@@ -260,7 +276,7 @@ function fmtDate(iso: string | null) {
 .list-head {
   background: var(--bg-2);
   border-bottom: 1px solid var(--border);
-  font: 600 10.5px var(--font-mono);
+  font: 600 11px var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);

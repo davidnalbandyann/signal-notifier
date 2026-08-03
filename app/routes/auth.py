@@ -18,4 +18,4 @@ async def login(body: LoginRequest):
     if body.username != settings.AUTH_USERNAME or body.password != settings.AUTH_PASSWORD:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     token = create_token(settings)
-    return {"token": token, "expires_in": settings.JWT_EXPIRY_HOURS * 3600}
+    return {"token": token, "username": settings.AUTH_USERNAME, "expires_in": settings.JWT_EXPIRY_HOURS * 3600}

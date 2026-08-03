@@ -2,28 +2,32 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
-import ScoreBar from '@/components/ui/ScoreBar.vue'
+import SignalQualification from '@/components/ui/SignalQualification.vue'
 import BaseChip from '@/components/ui/BaseChip.vue'
 import StatusPill from '@/components/ui/StatusPill.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AppToast from '@/components/ui/AppToast.vue'
 import AppLoading from '@/components/ui/AppLoading.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import { getAnalysis, getScreenshot, resendNotification, reanalyze, deleteAnalysis } from '@/api/analyses'
 import { useToast } from '@/composables/useToast'
 import { useTimezone } from '@/composables/useTimezone'
+import { useThreshold } from '@/composables/useThreshold'
 import type { Analysis } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
 const { formatFull } = useTimezone()
+const { threshold, load: loadThreshold } = useThreshold()
 const id = Number(route.params.id)
 
 const analysis = ref<Analysis | null>(null)
 const loading = ref(true)
 const screenshotUrl = ref('')
 const actionLoading = ref<null | 'resend' | 'reanalyze' | 'delete'>(null)
+const showDeleteConfirm = ref(false)
 
 async function load() {
   try {
@@ -36,7 +40,7 @@ async function load() {
   finally { loading.value = false }
 }
 
-onMounted(load)
+onMounted(() => { loadThreshold(); load() })
 onUnmounted(() => { if (screenshotUrl.value) URL.revokeObjectURL(screenshotUrl.value) })
 
 async function handleResend() {
@@ -52,7 +56,10 @@ async function handleReanalyze() {
   finally { actionLoading.value = null }
 }
 async function handleDelete() {
-  if (!confirm('Delete this analysis? This cannot be undone.')) return
+  showDeleteConfirm.value = true
+}
+
+async function confirmDelete() {
   actionLoading.value = 'delete'
   try { await deleteAnalysis(id); toast.ok('Analysis deleted'); router.push('/history') }
   catch { toast.err('Failed to delete') }
@@ -103,15 +110,20 @@ function fmtFull(iso: string) {
         <div class="body-grid">
           <!-- Info panel -->
           <aside class="card info-card">
-            <div class="card-head"><div class="card-title">Signal</div></div>
+            <div class="card-head"><div class="card-title">Signal qualification</div></div>
             <div class="info-body">
+              <div class="qual-block">
+                <SignalQualification
+                  :score="analysis.score"
+                  :threshold="threshold"
+                  :direction="analysis.direction"
+                  :sent="analysis.sent"
+                  density="rich"
+                />
+              </div>
               <div class="info-row">
                 <span class="k">Direction</span>
                 <BaseChip :direction="analysis.direction" dot>{{ analysis.direction }}</BaseChip>
-              </div>
-              <div class="info-row">
-                <span class="k">Score</span>
-                <ScoreBar :score="analysis.score" size="md" />
               </div>
               <div class="info-row">
                 <span class="k">Created</span>
@@ -175,6 +187,15 @@ function fmtFull(iso: string) {
       </template>
     </div>
     <AppToast />
+    <ConfirmModal
+      :show="showDeleteConfirm"
+      title="Delete analysis"
+      message="Delete this analysis? This cannot be undone."
+      confirm-label="Delete"
+      :loading="actionLoading === 'delete'"
+      @confirm="confirmDelete"
+      @cancel="showDeleteConfirm = false"
+    />
   </AppShell>
 </template>
 
@@ -197,7 +218,7 @@ function fmtFull(iso: string) {
 .info-card, .screenshot-card, .reasoning-card { padding: 0; overflow: hidden; }
 .card-head { padding: 11px 16px; }
 .card-title { font: 600 11px var(--font-mono); letter-spacing: 0.08em; color: var(--fg-2); text-transform: uppercase; }
-.card-meta { font: 500 10.5px var(--font-mono); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.card-meta { font: 500 11px var(--font-mono); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
 .card-link {
   display: inline-flex;
   align-items: center;
@@ -207,8 +228,14 @@ function fmtFull(iso: string) {
 }
 
 .info-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 11px; }
+.qual-block {
+  padding: 12px 14px;
+  background: var(--bg-2);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
 .info-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.k { font: 600 10.5px var(--font-mono); color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.k { font: 600 11px var(--font-mono); color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
 .v { font: 500 13px var(--font-mono); color: var(--fg); }
 .v.accent { color: var(--accent-2); }
 .v.short { color: var(--red); }

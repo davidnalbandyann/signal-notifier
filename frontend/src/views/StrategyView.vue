@@ -2,9 +2,11 @@
 import { ref, onMounted, computed } from 'vue'
 import AppShell from '@/components/layout/AppShell.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import SideAccentCard from '@/components/ui/SideAccentCard.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AppToast from '@/components/ui/AppToast.vue'
 import AppLoading from '@/components/ui/AppLoading.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import { getStrategy, updateStrategy } from '@/api/strategy'
 import { useToast } from '@/composables/useToast'
 
@@ -13,6 +15,7 @@ const content = ref('')
 const original = ref('')
 const loading = ref(true)
 const saving = ref(false)
+const showDiscard = ref(false)
 
 onMounted(async () => {
   try {
@@ -38,8 +41,13 @@ async function save() {
 }
 
 function reset() {
-  if (!dirty.value || !confirm('Discard unsaved changes?')) return
+  if (!dirty.value) return
+  showDiscard.value = true
+}
+
+function confirmDiscard() {
   content.value = original.value
+  showDiscard.value = false
 }
 </script>
 
@@ -63,13 +71,13 @@ function reset() {
         </BaseButton>
       </header>
 
-      <div class="card info-banner">
+      <SideAccentCard class="info-banner">
         <AppIcon name="info" :size="14" :stroke="2" class="info-ic" />
         <div class="info-text">
           <div class="info-title">Edit with care</div>
           <div class="info-sub">This prompt is hot-reloaded on every cycle. Plain markdown is supported.</div>
         </div>
-      </div>
+      </SideAccentCard>
 
       <AppLoading v-if="loading" label="Loading strategy…" />
 
@@ -95,6 +103,15 @@ Define the rules the AI uses to score charts and decide direction…"
       </div>
     </div>
     <AppToast />
+    <ConfirmModal
+      :show="showDiscard"
+      title="Discard changes"
+      message="Discard unsaved changes to the strategy prompt?"
+      confirm-label="Discard"
+      :danger="false"
+      @confirm="confirmDiscard"
+      @cancel="showDiscard = false"
+    />
   </AppShell>
 </template>
 
@@ -110,7 +127,6 @@ Define the rules the AI uses to score charts and decide direction…"
   align-items: center;
   gap: 11px;
   padding: 12px 16px;
-  border-left: 3px solid var(--accent);
 }
 .info-ic { color: var(--accent); flex-shrink: 0; }
 .info-title { font: 600 13px var(--font-sans); color: var(--fg); }

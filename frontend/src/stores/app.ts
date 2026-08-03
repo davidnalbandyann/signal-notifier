@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onScopeDispose } from 'vue'
 
 export const useAppStore = defineStore('app', () => {
   const theme = ref<'dark' | 'light'>(
@@ -26,10 +26,16 @@ export const useAppStore = defineStore('app', () => {
     mobileSidebarOpen.value = false
   }
 
-  const isMobile = computed(() => {
-    if (typeof window === 'undefined') return false
-    return window.innerWidth <= 768
-  })
+  // isMobile needs to update on resize/rotation. window.innerWidth reads
+  // were previously reactive on the FIRST render only — value went stale
+  // after the user resized the window or rotated a tablet.
+  const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1280)
+  if (typeof window !== 'undefined') {
+    const onResize = () => { windowWidth.value = window.innerWidth }
+    window.addEventListener('resize', onResize, { passive: true })
+    onScopeDispose(() => window.removeEventListener('resize', onResize))
+  }
+  const isMobile = computed(() => windowWidth.value <= 768)
 
   watch(theme, (val) => {
     localStorage.setItem('tcm:theme', val)

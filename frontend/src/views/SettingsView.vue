@@ -69,13 +69,13 @@ async function toggleScan() {
   try {
     if (scanRunning.value) { await pauseScan(); scanRunning.value = false; toast.ok('Scan loop paused') }
     else { await resumeScan(); scanRunning.value = true; toast.ok('Scan loop resumed') }
-  } catch { toast.err('Failed to toggle scan') }
+  } catch { toast.err('Failed to pause or resume the scan loop') }
   finally { scanLoading.value = false }
 }
 
 async function runScanNow() {
   scanLoading.value = true
-  try { await triggerScan(); toast.ok('Scan triggered') }
+  try { await triggerScan(); toast.ok('Scan started') }
   catch { toast.err('Failed to trigger scan') }
   finally { scanLoading.value = false }
 }
@@ -121,7 +121,12 @@ function scrollTo(id: string) {
             v-for="s in sections"
             :key="s.id"
             :class="{ active: activeSection === s.id }"
+            role="button"
+            tabindex="0"
+            :aria-current="activeSection === s.id ? 'true' : undefined"
             @click="scrollTo(s.id)"
+            @keydown.enter.prevent="scrollTo(s.id)"
+            @keydown.space.prevent="scrollTo(s.id)"
           >
             <AppIcon :name="s.icon" :size="14" />
             <span>{{ s.label }}</span>
@@ -515,8 +520,8 @@ function scrollTo(id: string) {
   white-space: nowrap;
 }
 .subnav a:hover { background: var(--surface-2); color: var(--fg); }
-.subnav a.active { background: var(--accent-soft); color: var(--accent); }
-.subnav a.active svg { color: var(--accent); }
+.subnav a.active { background: var(--accent-soft); color: var(--accent-2); }
+.subnav a.active svg { color: var(--accent-2); }
 
 /* Group */
 .group { margin-bottom: 14px; overflow: hidden; padding: 0; }

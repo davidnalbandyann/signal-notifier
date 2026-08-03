@@ -4,10 +4,12 @@ import AppShell from '@/components/layout/AppShell.vue'
 import PulseIndicator from '@/components/ui/PulseIndicator.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseChip from '@/components/ui/BaseChip.vue'
+import SideAccentCard from '@/components/ui/SideAccentCard.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AppToast from '@/components/ui/AppToast.vue'
 import AppLoading from '@/components/ui/AppLoading.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import {
   getEngineStatus, startEngine, stopEngine, getEngineLogs,
 } from '@/api/cpp-engine'
@@ -20,6 +22,7 @@ const { formatTime } = useTimezone()
 const status = ref<CppEngineStatus | null>(null)
 const loading = ref(true)
 const engineLoading = ref(false)
+const showStopConfirm = ref(false)
 const logLines = ref<string[]>([])
 const logBox = ref<HTMLElement | null>(null)
 const signals = ref<any[]>([])
@@ -55,19 +58,43 @@ async function loadStatus() {
 }
 
 async function toggleEngine() {
+  if (status.value?.running) { showStopConfirm.value = true; return }
+  await doStart()
+}
+
+async function doStart() {
   engineLoading.value = true
   try {
-    if (status.value?.running) { await stopEngine(); toast.ok('Engine stopped') }
-    else { await startEngine(); toast.ok('Engine started') }
+    await startEngine(); toast.ok('Engine started')
     await loadStatus()
-  } catch (e: any) { toast.err(e?.message || 'Failed to toggle engine') }
+  } catch (e: any) { toast.err(e?.message || 'Failed to start the engine') }
   finally { engineLoading.value = false }
 }
+
+async function doStop() {
+  engineLoading.value = true
+  try {
+    await stopEngine(); toast.ok('Engine stopped')
+    showStopConfirm.value = false
+    await loadStatus()
+  } catch (e: any) { toast.err(e?.message || 'Failed to stop the engine') }
+  finally { engineLoading.value = false }
+}
+
+let lastLogCount = 0
+let lastLogTail = ''
 
 async function loadLogs() {
   try {
     const r = await getEngineLogs()
-    logLines.value = r.lines
+    const lines = r.lines
+    // Only replace the reactive ref if the buffer actually changed —
+    // most polls are no-ops. This keeps the log viewport off the
+    // reactive update path when the engine is idle.
+    if (lines.length === lastLogCount && lines.length && lines[lines.length - 1] === lastLogTail) return
+    lastLogCount = lines.length
+    lastLogTail = lines.length ? lines[lines.length - 1] : ''
+    logLines.value = lines
     if (logBox.value) {
       await nextTick()
       logBox.value.scrollTop = logBox.value.scrollHeight
@@ -142,7 +169,7 @@ loadSignals()
           </BaseButton>
         </section>
 
-        <section v-if="lastSignal" class="card last-sig">
+        <SideAccentCard v-if="lastSignal" accent="amber" class="last-sig">
           <div class="ls-label eyebrow">Last C++ signal</div>
           <div class="ls-body">
             <span class="ls-sym mono">{{ lastSignal.chart_name }}</span>
@@ -152,7 +179,7 @@ loadSignals()
             <span class="ls-score mono">score {{ lastSignal.score }}</span>
             <span class="ls-time mono">{{ formatTime(lastSignal.timestamp) }}</span>
           </div>
-        </section>
+        </SideAccentCard>
 
         <section class="card log-card">
           <div class="card-head">
@@ -160,7 +187,7 @@ loadSignals()
             <span v-if="status?.running" class="live-tag mono">
               <span class="live-dot"></span> polling every 2s
             </span>
-            <span v-else class="card-meta mono">paused</span>
+            <span v-else class="card-meta mono">stopped</span>
           </div>
           <div ref="logBox" class="log-viewport">
             <div v-if="logLines.length === 0" class="log-empty">
@@ -187,9 +214,9 @@ loadSignals()
             <div class="sig-head">
               <span class="c-sym">Symbol</span>
               <span class="c-dir">Dir</span>
-              <span class="c-num">BW</span>
-              <span class="c-num">VolR</span>
-              <span class="c-num">RSI</span>
+              <span class="c-num" title="Bandwidth">BW</span>
+              <span class="c-num" title="Volume ratio">VolR</span>
+              <span class="c-num" title="Relative Strength Index">RSI</span>
               <span class="c-entry">Entry</span>
               <span class="c-num">Score</span>
               <span class="c-time">Time</span>
@@ -211,6 +238,15 @@ loadSignals()
       </template>
     </div>
     <AppToast />
+    <ConfirmModal
+      :show="showStopConfirm"
+      title="Stop engine"
+      message="Stop the C++ signal engine? It will stop polling Binance and sending signals."
+      confirm-label="Stop engine"
+      :loading="engineLoading"
+      @confirm="doStop"
+      @cancel="showStopConfirm = false"
+    />
   </AppShell>
 </template>
 
@@ -227,7 +263,7 @@ loadSignals()
 .status-stats { display: flex; align-items: center; gap: 6px; font: 500 11.5px var(--font-mono); color: var(--fg-2); }
 .status-stats .sep, .status-stats .muted { color: var(--muted-2); }
 
-.last-sig { padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; border-left: 3px solid var(--amber); }
+.last-sig { padding: 12px 18px; display: flex; flex-direction: column; gap: 6px; }
 .ls-label { color: var(--muted); }
 .ls-body { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ls-sym { font: 600 14px var(--font-mono); color: var(--fg); }
@@ -239,12 +275,12 @@ loadSignals()
 .log-card { padding: 0; overflow: hidden; }
 .card-head { padding: 11px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .card-title { font: 600 11px var(--font-mono); letter-spacing: 0.08em; color: var(--fg-2); text-transform: uppercase; }
-.card-meta { font: 500 10.5px var(--font-mono); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.card-meta { font: 500 11px var(--font-mono); color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
 .live-tag {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font: 600 10.5px var(--font-mono);
+  font: 600 11px var(--font-mono);
   color: var(--green);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -257,9 +293,9 @@ loadSignals()
   animation: pulse 2s infinite;
 }
 @keyframes pulse {
-  0%   { box-shadow: 0 0 0 0 oklch(74% 0.17 152 / 0.5); }
-  70%  { box-shadow: 0 0 0 6px oklch(74% 0.17 152 / 0); }
-  100% { box-shadow: 0 0 0 0 oklch(74% 0.17 152 / 0); }
+  0%   { box-shadow: 0 0 0 0 var(--glow); }
+  70%  { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 
 .log-viewport {
@@ -301,7 +337,7 @@ loadSignals()
 .sig-head {
   background: var(--bg-2);
   border-bottom: 1px solid var(--border);
-  font: 600 10px var(--font-mono);
+  font: 600 11px var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);

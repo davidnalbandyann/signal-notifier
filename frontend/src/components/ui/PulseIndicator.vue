@@ -42,8 +42,8 @@ withDefaults(defineProps<{
 .idle { background: var(--surface-3); color: var(--muted); }
 
 @keyframes pulse {
-  0%   { box-shadow: 0 0 0 0 oklch(74% 0.17 152 / 0.5); }
-  70%  { box-shadow: 0 0 0 7px oklch(74% 0.17 152 / 0); }
-  100% { box-shadow: 0 0 0 0 oklch(74% 0.17 152 / 0); }
+  0%   { box-shadow: 0 0 0 0 var(--glow); }
+  70%  { box-shadow: 0 0 0 7px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
 }
 </style>

@@ -46,21 +46,19 @@ const iconName = computed(() => ({
   gap: 9px;
   z-index: var(--z-toast);
   border: 1px solid var(--border-2);
-  background: var(--surface);
   color: var(--fg);
   max-width: 360px;
   min-width: 200px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  background: oklch(23% 0.016 264 / 0.95);
+  background: var(--toast-bg);
 }
-[data-theme="light"] .toast { background: oklch(100% 0 0 / 0.95); }
 .toast .msg { flex: 1; }
 .toast.success { border-color: var(--green); color: var(--green); }
 .toast.success .msg { color: var(--fg); }
 .toast.error { border-color: var(--red); color: var(--red); }
 .toast.error .msg { color: var(--fg); }
-.toast.info { border-color: var(--accent); color: var(--accent); }
+.toast.info { border-color: var(--accent); color: var(--accent-2); }
 .toast.info .msg { color: var(--fg); }
 .x {
   background: none;

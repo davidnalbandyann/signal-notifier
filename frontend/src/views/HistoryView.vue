@@ -1,24 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import AppShell from '@/components/layout/AppShell.vue'
-import ScoreBar from '@/components/ui/ScoreBar.vue'
-import BaseChip from '@/components/ui/BaseChip.vue'
+import SignalQualification from '@/components/ui/SignalQualification.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseToggle from '@/components/ui/BaseToggle.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AppToast from '@/components/ui/AppToast.vue'
 import AppLoading from '@/components/ui/AppLoading.vue'
 import EmptyState from '@/components/ui/EmptyState.vue'
+import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import { getAnalyses, resendNotification, reanalyze, deleteAnalysis } from '@/api/analyses'
 import { getCharts } from '@/api/charts'
 import { useToast } from '@/composables/useToast'
 import { useTimezone } from '@/composables/useTimezone'
+import { useThreshold } from '@/composables/useThreshold'
 import type { Analysis, Chart } from '@/types'
 
 const router = useRouter()
 const toast = useToast()
 const { formatTime, formatDate, isSameDay } = useTimezone()
+const { threshold, load: loadThreshold } = useThreshold()
 const items = ref<Analysis[]>([])
 const charts = ref<Chart[]>([])
 const total = ref(0)
@@ -35,9 +37,11 @@ const filterSignalsOnly = ref(false)
 const sortField = ref('timestamp')
 const sortDir = ref<'asc' | 'desc'>('desc')
 const actionLoading = ref<number | null>(null)
+const deleteTarget = ref<number | null>(null)
 
 onMounted(async () => {
   try { charts.value = await getCharts() } catch { /* silent */ }
+  loadThreshold()
   await load()
 })
 
@@ -66,6 +70,13 @@ async function load() {
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 const startItem = computed(() => total.value === 0 ? 0 : (page.value - 1) * pageSize.value + 1)
 const endItem = computed(() => Math.min(page.value * pageSize.value, total.value))
+
+const sortLabel = computed(() => {
+  const names: Record<string, string> = { timestamp: 'time', chart_name: 'chart', direction: 'direction', score: 'score' }
+  const name = names[sortField.value] || sortField.value
+  if (sortField.value === 'timestamp') return `${name}, ${sortDir.value === 'desc' ? 'newest first' : 'oldest first'}`
+  return `${name}, ${sortDir.value === 'desc' ? 'descending' : 'ascending'}`
+})
 
 const pageRange = computed(() => {
   const max = 5, half = 2
@@ -112,21 +123,53 @@ async function handleReanalyze(e: Event, id: number) {
 }
 async function handleDelete(e: Event, id: number) {
   e.stopPropagation()
-  if (!confirm('Delete this analysis? This cannot be undone.')) return
+  deleteTarget.value = id
+}
+
+async function confirmDelete() {
+  const id = deleteTarget.value
+  if (id == null) return
   actionLoading.value = id
-  try { await deleteAnalysis(id); toast.ok('Analysis deleted'); load() }
+  try { await deleteAnalysis(id); toast.ok('Analysis deleted'); deleteTarget.value = null; load() }
   catch { toast.err('Failed to delete') }
   finally { actionLoading.value = null }
 }
 
-function fmtTs(iso: string) {
+// Cached per-iso so a row that renders the timestamp twice doesn't pay
+// the format cost twice. Cache lives for the lifetime of the load().
+const fmtCache = new Map<string, [string, string]>()
+let fmtCacheEpoch = 0
+
+function fmtTs(iso: string): [string, string] {
+  const hit = fmtCache.get(iso)
+  if (hit) return hit
   const time = formatTime(iso)
-  const now = new Date().toISOString()
-  const yesterday = new Date(Date.now() - 86400000).toISOString()
-  if (isSameDay(iso, now)) return ['Today', time]
-  if (isSameDay(iso, yesterday)) return ['Yesterday', time]
-  return [formatDate(iso, { month: 'short', day: 'numeric', year: '2-digit' }), time]
+  const now = cachedNow.value
+  const yesterday = cachedYesterday.value
+  let result: [string, string]
+  if (isSameDay(iso, now)) result = ['Today', time]
+  else if (isSameDay(iso, yesterday)) result = ['Yesterday', time]
+  else result = [formatDate(iso, { month: 'short', day: 'numeric', year: '2-digit' }), time]
+  fmtCache.set(iso, result)
+  return result
 }
+
+// Refresh "now" once per minute; before, every row constructed a fresh
+// Date + two isSameDay comparisons per render.
+const cachedNow = ref(new Date().toISOString())
+const cachedYesterday = ref(new Date(Date.now() - 86400000).toISOString())
+let nowTick: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  nowTick = setInterval(() => {
+    cachedNow.value = new Date().toISOString()
+    cachedYesterday.value = new Date(Date.now() - 86400000).toISOString()
+    fmtCacheEpoch++
+    // Invalidate cache once a minute — the day-boundary bucket for any
+    // timestamp can shift (Today → Yesterday) without the row's iso changing.
+    if (fmtCacheEpoch > 60) { fmtCache.clear(); fmtCacheEpoch = 0 }
+  }, 60000)
+})
+onUnmounted(() => { if (nowTick) clearInterval(nowTick) })
 
 const activeFilters = computed(() =>
   (filterDirection.value ? 1 : 0) +
@@ -153,13 +196,9 @@ function clearFilters() {
       <header class="pg-head">
         <div>
           <h1 class="pg-title">Analysis history</h1>
-          <div class="pg-sub">{{ total.toLocaleString() }} rows &middot; sorted by {{ sortField }} {{ sortDir }}</div>
+          <div class="pg-sub">{{ total.toLocaleString() }} rows &middot; sorted by {{ sortLabel }}</div>
         </div>
         <div class="grow"></div>
-        <BaseButton variant="ghost" disabled title="Export coming soon">
-          <AppIcon name="download" :size="13" />
-          Export CSV
-        </BaseButton>
       </header>
 
       <!-- Filters -->
@@ -208,7 +247,15 @@ function clearFilters() {
       <AppLoading v-if="loading" label="Loading analyses…" />
 
       <div v-else-if="items.length === 0" class="card empty-card">
-        <EmptyState icon="history" title="No analyses found" description="Try adjusting your filters or trigger a scan" />
+        <EmptyState
+          icon="history"
+          title="No analyses found"
+          :description="filterSignalsOnly
+            ? (threshold != null
+                ? `No signals above threshold (${threshold.toFixed(1)}) — adjust filters or trigger a scan`
+                : 'No signals found — adjust filters or trigger a scan')
+            : 'Try adjusting your filters or trigger a scan'"
+        />
       </div>
 
       <div v-else class="card table-card">
@@ -221,14 +268,10 @@ function clearFilters() {
               <th @click="toggleSort('chart_name')" class="th-sort">
                 Chart <span class="arr">{{ sortArrow('chart_name') }}</span>
               </th>
-              <th @click="toggleSort('direction')" class="th-sort">
-                Direction <span class="arr">{{ sortArrow('direction') }}</span>
-              </th>
               <th @click="toggleSort('score')" class="th-sort">
-                Score <span class="arr">{{ sortArrow('score') }}</span>
+                Qualification <span class="arr">{{ sortArrow('score') }}</span>
               </th>
-              <th>Sent</th>
-              <th>Notif ID</th>
+              <th>Notification</th>
               <th class="th-actions">Actions</th>
             </tr>
           </thead>
@@ -240,15 +283,19 @@ function clearFilters() {
               @click="goAnalysis(a.id)"
             >
               <td class="mono ts-cell">
-                <div class="ts-main">{{ fmtTs(a.timestamp)[0] }}</div>
-                <div class="ts-sub">{{ fmtTs(a.timestamp)[1] }}</div>
+                <template v-for="(part, i) in fmtTs(a.timestamp)" :key="i">
+                  <div :class="i === 0 ? 'ts-main' : 'ts-sub'">{{ part }}</div>
+                </template>
               </td>
               <td><span class="sym mono">{{ a.chart_name }}</span></td>
-              <td><BaseChip :direction="a.direction" dot>{{ a.direction }}</BaseChip></td>
-              <td><ScoreBar :score="a.score" /></td>
-              <td>
-                <BaseChip v-if="a.sent" status="sent">Telegram</BaseChip>
-                <span v-else class="muted mono">—</span>
+              <td class="qual-cell">
+                <SignalQualification
+                  :score="a.score"
+                  :threshold="threshold"
+                  :direction="a.direction"
+                  :sent="a.sent"
+                  density="compact"
+                />
               </td>
               <td class="mono id-cell">
                 <template v-if="a.notification_id">#{{ String(a.notification_id).padStart(4, '0') }}</template>
@@ -291,6 +338,15 @@ function clearFilters() {
       </div>
     </div>
     <AppToast />
+    <ConfirmModal
+      :show="deleteTarget !== null"
+      title="Delete analysis"
+      message="Delete this analysis? This cannot be undone."
+      confirm-label="Delete"
+      :loading="actionLoading === deleteTarget"
+      @confirm="confirmDelete"
+      @cancel="deleteTarget = null"
+    />
   </AppShell>
 </template>
 
@@ -329,7 +385,7 @@ function clearFilters() {
 table { width: 100%; border-collapse: collapse; }
 thead th {
   text-align: left;
-  font: 600 10.5px var(--font-mono);
+  font: 600 11px var(--font-mono);
   color: var(--muted);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -340,7 +396,7 @@ thead th {
 }
 .th-sort { cursor: pointer; user-select: none; transition: color .12s; }
 .th-sort:hover { color: var(--fg); }
-.th-sort .arr { color: var(--muted-2); font-size: 9px; margin-left: 4px; }
+.th-sort .arr { color: var(--muted-2); font-size: 11px; margin-left: 4px; }
 .th-actions { text-align: right; }
 
 tbody td {
@@ -361,6 +417,7 @@ tbody tr:first-child td { border-top: 0; }
 .sym { font: 600 12.5px var(--font-mono); color: var(--fg); }
 
 .id-cell { font-size: 11.5px; color: var(--muted); }
+.qual-cell { padding: 8px 14px; min-width: 280px; }
 .muted { color: var(--muted-2); }
 
 .actions-cell { white-space: nowrap; text-align: right; }
@@ -405,14 +462,14 @@ tbody tr:first-child td { border-top: 0; }
   .data-row {
     display: grid;
     grid-template-columns: 1fr auto;
-    gap: 4px 12px;
+    gap: 6px 12px;
     padding: 12px 14px;
     border-top: 1px solid var(--border);
   }
   .ts-cell { grid-column: 1; }
-  .sym { grid-column: 2; text-align: right; }
-  td:nth-child(3), td:nth-child(4) { grid-column: 1; }
-  td:nth-child(5), td:nth-child(6) { grid-column: 2; text-align: right; }
+  .sym { grid-column: 2; text-align: right; align-self: center; }
+  .qual-cell { grid-column: 1 / -1; }
+  .id-cell { grid-column: 1; }
   .actions-cell { grid-column: 1 / -1; text-align: left; padding-top: 6px; border-top: 1px dashed var(--border); }
   .pager { flex-direction: column; align-items: stretch; }
 }

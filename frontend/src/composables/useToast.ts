@@ -6,6 +6,16 @@ interface ToastState { show: boolean; message: string; kind: ToastKind }
 const state = ref<ToastState>({ show: false, message: '', kind: 'success' })
 let hideTimer: ReturnType<typeof setTimeout> | null = null
 
+// Defensive: on full-page unload, drop any pending hide timer so we don't
+// fire `state.value = …` into a torn-down reactive tree. The setInterval
+// paths in views already clean up via onUnmounted; this covers the SPA
+// hard-reload case.
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null }
+  })
+}
+
 export function useToast() {
   function show(message: string, kind: ToastKind = 'success') {
     if (hideTimer) clearTimeout(hideTimer)

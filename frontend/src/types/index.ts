@@ -44,6 +44,7 @@ export interface DashboardStatus {
   analyses_today: number
   signals_sent: number
   avg_score: number
+  threshold: number
   recent_analyses: Analysis[]
   signals: Analysis[]
 }

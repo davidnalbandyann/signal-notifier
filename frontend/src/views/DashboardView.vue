@@ -5,6 +5,8 @@ import StatCard from '@/components/ui/StatCard.vue'
 import PulseIndicator from '@/components/ui/PulseIndicator.vue'
 import BaseChip from '@/components/ui/BaseChip.vue'
 import ScoreBar from '@/components/ui/ScoreBar.vue'
+import SignalQualification from '@/components/ui/SignalQualification.vue'
+import SideAccentCard from '@/components/ui/SideAccentCard.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AppToast from '@/components/ui/AppToast.vue'
@@ -13,15 +15,23 @@ import EmptyState from '@/components/ui/EmptyState.vue'
 import { getStatus, triggerScan, pauseScan, resumeScan } from '@/api/dashboard'
 import { useToast } from '@/composables/useToast'
 import { useTimezone } from '@/composables/useTimezone'
+import { useThreshold } from '@/composables/useThreshold'
 import type { DashboardStatus } from '@/types'
 
 const toast = useToast()
 const { formatTime, formatDate, isSameDay } = useTimezone()
+const { threshold, load: loadThreshold, setThreshold } = useThreshold()
 const status = ref<DashboardStatus | null>(null)
 const loading = ref(true)
+const loadError = ref('')
 const actionLoading = ref<null | 'scan' | 'pause'>(null)
+const elapsed = ref(0)
 let tick: ReturnType<typeof setInterval> | null = null
 let poll: ReturnType<typeof setInterval> | null = null
+
+const thresholdFmt = computed(() =>
+  (threshold.value ?? status.value?.threshold ?? 0).toFixed(1)
+)
 
 function cppExtra(s: any): Record<string, string> {
   if (!s?.signal_json) return {}
@@ -38,8 +48,14 @@ function cppExtra(s: any): Record<string, string> {
 
 async function load() {
   try {
-    status.value = await getStatus()
-  } catch { /* silent */ } finally { loading.value = false }
+    const next = await getStatus()
+    if (status.value?.threshold != null) setThreshold(status.value.threshold)
+    status.value = next
+    elapsed.value = 0
+    loadError.value = ''
+  } catch {
+    loadError.value = 'Could not reach the backend'
+  } finally { loading.value = false }
 }
 
 const systemState = computed<'running' | 'paused'>(() =>
@@ -51,7 +67,7 @@ async function runScan() {
   actionLoading.value = 'scan'
   try {
     await triggerScan()
-    toast.ok('Scan triggered')
+    toast.ok('Scan started')
     await load()
   } catch { toast.err('Failed to trigger scan') }
   finally { actionLoading.value = null }
@@ -71,7 +87,7 @@ async function togglePause() {
 const nextScanIn = computed(() => {
   if (!status.value) return 0
   if (!status.value.running) return 0
-  return Math.max(0, status.value.next_scan_seconds)
+  return Math.max(0, status.value.next_scan_seconds - elapsed.value)
 })
 const nextScanFmt = computed(() => {
   const s = nextScanIn.value
@@ -86,14 +102,25 @@ const progressPct = computed(() => {
 })
 
 function fmtTime(iso: string) {
-  const now = new Date().toISOString()
+  // Recompute "now" once per render \u2014 not per row. Each call to isSameDay +
+  // each new Date().toISOString() allocates + parses; on a 12-row dashboard
+  // panel we were paying that 12\u00d7.
+  const now = cachedNow.value
   if (isSameDay(iso, now)) return formatTime(iso)
   return formatDate(iso, { month: 'short', day: 'numeric' }) + ' \u00b7 ' + formatTime(iso)
 }
 
+const cachedNow = ref(new Date().toISOString())
+let nowTimer: ReturnType<typeof setInterval> | null = null
+onMounted(() => {
+  nowTimer = setInterval(() => { cachedNow.value = new Date().toISOString() }, 30000)
+})
+onUnmounted(() => { if (nowTimer) clearInterval(nowTimer) })
+
 onMounted(() => {
   load()
-  tick = setInterval(() => {}, 1000)
+  loadThreshold()
+  tick = setInterval(() => { elapsed.value++ }, 1000)
   poll = setInterval(load, 15000)
 })
 onUnmounted(() => {
@@ -116,8 +143,22 @@ onUnmounted(() => {
 
       <AppLoading v-if="loading" size="lg" label="Loading monitor\u2026" />
 
+      <div v-else-if="loadError" class="card error-card">
+        <div class="error-row">
+          <AppIcon name="alert" :size="15" :stroke="2" />
+          <div>
+            <div class="error-title">Backend unreachable</div>
+            <div class="error-sub">Could not reach the API. Check that the server is running, then retry.</div>
+          </div>
+        </div>
+        <BaseButton variant="ghost" @click="load">
+          <AppIcon name="refresh" :size="13" :stroke="2.5" />
+          Retry
+        </BaseButton>
+      </div>
+
       <template v-else-if="status">
-        <section :class="['scan-bar', { paused: !status.running }]">
+        <SideAccentCard :paused="!status.running" class="scan-bar" weight="bold">
           <div class="scan-meta">
             <div class="scan-label eyebrow">Next automatic scan</div>
             <div class="scan-time mono">
@@ -151,13 +192,13 @@ onUnmounted(() => {
               {{ actionLoading === 'scan' ? 'Scanning\u2026' : 'Run scan now' }}
             </BaseButton>
           </div>
-        </section>
+        </SideAccentCard>
 
         <section class="stats">
           <StatCard icon="charts" label="Charts watched" :value="status.charts_count" hint="Active watchlist" />
-          <StatCard icon="activity" label="Analyses today" :value="status.analyses_today" hint="Vision passes today" />
-          <StatCard icon="bell" label="Signals sent" :value="status.signals_sent" hint="Telegram deliveries" />
-          <StatCard icon="bolt" label="Average score" :value="status.avg_score.toFixed(1)" hint="Across all analyses" />
+          <StatCard icon="activity" label="Analyses today" :value="status.analyses_today" hint="Charts analyzed today" />
+          <StatCard icon="bell" label="Signals sent" :value="status.signals_sent" hint="Delivered to Telegram today" />
+          <StatCard icon="bolt" label="Average score" :value="status.analyses_today ? status.avg_score.toFixed(1) : '\u2014'" hint="Average score today" />
         </section>
 
         <section class="panels">
@@ -183,7 +224,7 @@ onUnmounted(() => {
                     <span class="time mono">{{ fmtTime(a.timestamp) }}</span>
                   </div>
                   <div class="anal-right">
-                    <ScoreBar :score="a.score" />
+                    <ScoreBar :score="a.score" :threshold="threshold" />
                     <BaseChip :direction="a.direction" dot>{{ a.direction }}</BaseChip>
                   </div>
                 </router-link>
@@ -194,13 +235,13 @@ onUnmounted(() => {
           <div class="card panel">
             <div class="card-head">
               <div class="card-title">Recent signals</div>
-              <span class="card-meta mono">score &ge; 7.0</span>
+              <span class="card-meta mono">score &ge; {{ thresholdFmt }}</span>
             </div>
             <EmptyState
               v-if="(status.signals || []).length === 0"
               icon="bell"
               title="No signals yet"
-              description="Signals appear when an analysis scores &ge; 7.0"
+              :description="`Signals appear when an analysis scores ≥ ${thresholdFmt}`"
             />
             <ul v-else class="sig-list">
               <li v-for="(s, i) in (status.signals || []).slice(0, 6)" :key="s.id" class="sig-row anim-in" :style="{ animationDelay: i * 0.04 + 's' }">
@@ -212,8 +253,13 @@ onUnmounted(() => {
                   </span>
                 </div>
                 <div class="sig-mid">
-                  <ScoreBar :score="s.score" size="md" />
-                  <BaseChip :status="s.sent ? 'sent' : 'fail'">{{ s.sent ? 'SENT' : 'FAILED' }}</BaseChip>
+                  <SignalQualification
+                    :score="s.score"
+                    :threshold="threshold"
+                    :direction="s.direction"
+                    :sent="s.sent"
+                    density="rich"
+                  />
                 </div>
                 <div class="sig-bot">
                   <span class="time mono">{{ fmtTime(s.timestamp) }}</span>
@@ -255,15 +301,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 24px;
   padding: 18px 22px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-lg);
-  transition: border-left-color var(--speed-normal), box-shadow var(--speed-normal);
   box-shadow: var(--shadow-sm);
 }
 .scan-bar:hover { box-shadow: var(--shadow-md); }
-.scan-bar.paused { border-left-color: var(--amber); }
 .scan-meta { display: flex; flex-direction: column; gap: 4px; }
 .scan-label { color: var(--muted); }
 .scan-time {
@@ -306,6 +346,19 @@ onUnmounted(() => {
   gap: 14px;
   align-items: start;
 }
+
+.error-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-left: 1px solid var(--border);
+}
+.error-row { display: flex; align-items: center; gap: 12px; }
+.error-row .icon { color: var(--red); flex-shrink: 0; }
+.error-title { font: 600 13.5px var(--font-sans); color: var(--fg); }
+.error-sub { font: 400 12px var(--font-sans); color: var(--muted); margin-top: 2px; }
 .panel { overflow: hidden; }
 .card-head { padding: 12px 16px; }
 .card-title { font: 600 11px var(--font-mono); letter-spacing: 0.08em; color: var(--fg-2); text-transform: uppercase; }
@@ -317,8 +370,8 @@ onUnmounted(() => {
   color: var(--accent-2);
   transition: color var(--speed-fast);
 }
-.card-link:hover { color: var(--accent); }
-.card-meta { font: 500 10.5px var(--font-mono); color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
+.card-link:hover { color: var(--accent-link); }
+.card-meta { font: 500 11px var(--font-mono); color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; }
 
 .anal-list { list-style: none; }
 .anal-row {
@@ -355,7 +408,7 @@ onUnmounted(() => {
   border-radius: 4px;
   background: var(--amber-soft);
   color: var(--amber);
-  font: 700 9.5px var(--font-mono);
+  font: 700 11px var(--font-mono);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -368,7 +421,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 .sig-bot .time { font: 400 11px var(--font-mono); color: var(--muted); }
-.sig-extra { display: flex; gap: 12px; font: 500 10.5px var(--font-mono); color: var(--muted); }
+.sig-extra { display: flex; gap: 12px; font: 500 11px var(--font-mono); color: var(--muted); }
 .sig-extra .k { color: var(--muted-2); }
 .sig-extra .v { color: var(--fg-2); }
 

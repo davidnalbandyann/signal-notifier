@@ -25,7 +25,7 @@ const kindMap: Record<string, string> = {
   gap: 6px;
   padding: 2px 8px 2px 7px;
   border-radius: 999px;
-  font: 600 10.5px var(--font-mono);
+  font: 600 11px var(--font-mono);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;

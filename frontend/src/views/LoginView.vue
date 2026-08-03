@@ -9,7 +9,7 @@ const auth = useAuthStore()
 const router = useRouter()
 const toast = useToast()
 
-const username = ref('admin')
+const username = ref('')
 const password = ref('')
 const showPass = ref(false)
 const loading = ref(false)
@@ -23,7 +23,7 @@ async function submit() {
     toast.ok('Signed in')
     router.push('/')
   } catch {
-    error.value = 'Invalid credentials. Try admin / admin123'
+    error.value = 'Invalid credentials. Check your username and password.'
   } finally {
     loading.value = false
   }
@@ -95,11 +95,6 @@ async function submit() {
           <span v-if="loading" class="spinner sm"></span>
           {{ loading ? 'Signing in…' : 'Sign in' }}
         </button>
-
-        <div class="hint">
-          <AppIcon name="info" :size="12" :stroke="2" />
-          <span>Default: <span class="mono">admin / admin123</span></span>
-        </div>
       </form>
 
       <div class="footnote">
@@ -246,17 +241,8 @@ async function submit() {
   border-top-color: var(--accent-fg);
 }
 
-.hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font: 400 11.5px var(--font-sans);
-  color: var(--muted);
-}
-.hint .mono { color: var(--fg-2); }
-
 .footnote {
-  font: 500 10.5px var(--font-mono);
+  font: 500 11px var(--font-mono);
   color: var(--muted-2);
   letter-spacing: 0.1em;
   text-transform: uppercase;
