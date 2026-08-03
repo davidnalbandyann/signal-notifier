@@ -56,6 +56,7 @@ const paths: Record<string, string> = {
   search: 'M14 10a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM21 21l-6-6',
   signal: 'M22 12A10 10 0 1 1 12 2M22 2l-10 10M14 2h6v6',
   target: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
 }
 
 const d = paths[props.name] || ''

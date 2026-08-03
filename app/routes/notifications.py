@@ -6,23 +6,35 @@ router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
 @router.get("")
 async def list_notifications(
+    search: str = Query(""),
     page: int = Query(1),
     page_size: int = Query(50),
 ):
     db = get_db()
-    total_row = db.execute("SELECT COUNT(*) as cnt FROM notifications").fetchone()
+    conditions = []
+    params = []
+
+    if search.strip():
+        q = f"%{search.strip()}%"
+        conditions.append("(chart_name LIKE ? OR caption LIKE ? OR direction LIKE ?)")
+        params.extend([q, q, q])
+
+    where = " AND ".join(conditions) if conditions else "1=1"
+
+    total_row = db.execute(f"SELECT COUNT(*) as cnt FROM notifications WHERE {where}", params).fetchone()
     total = total_row["cnt"] if total_row else 0
 
     offset = (page - 1) * page_size
     rows = db.execute(
-        "SELECT * FROM notifications ORDER BY timestamp DESC LIMIT ? OFFSET ?",
-        (page_size, offset),
+        f"SELECT * FROM notifications WHERE {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+        params + [page_size, offset],
     ).fetchall()
 
     items = []
     for r in rows:
         items.append(_notification_row(r))
     return {"items": items, "total": total}
+
 
 
 @router.get("/{notification_id}")

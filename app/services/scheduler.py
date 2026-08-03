@@ -94,6 +94,21 @@ class SchedulerService:
         logger.info("cycle_completed", duration_seconds=round(elapsed, 2))
 
     def _load_charts(self) -> list[ChartConfig]:
+        try:
+            db = get_db()
+            rows = db.execute("SELECT name, url FROM charts WHERE enabled = 1 ORDER BY id ASC").fetchall()
+            if not rows:
+                cnt_row = db.execute("SELECT COUNT(*) as cnt FROM charts").fetchone()
+                cnt = cnt_row["cnt"] if cnt_row else 0
+                if cnt == 0:
+                    from app.database import seed_charts
+                    seed_charts()
+                    rows = db.execute("SELECT name, url FROM charts WHERE enabled = 1 ORDER BY id ASC").fetchall()
+            if rows:
+                return [ChartConfig(name=r["name"], url=r["url"]) for r in rows]
+        except Exception as e:
+            logger.error("db_load_charts_failed", error=str(e))
+
         urls_file = Path(self.settings.URLS_FILE)
         if not urls_file.exists():
             logger.error("urls_file_not_found", path=str(urls_file))

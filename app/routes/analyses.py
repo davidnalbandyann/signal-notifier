@@ -13,7 +13,9 @@ router = APIRouter(prefix="/api/analyses", tags=["analyses"])
 
 @router.get("")
 async def list_analyses(
+    search: str = Query(""),
     chart: str = Query(""),
+    chart_type: str = Query(""),
     direction: str = Query(""),
     min_score: float = Query(0.0),
     date_from: str = Query(""),
@@ -26,36 +28,46 @@ async def list_analyses(
     conditions = []
     params = []
 
+    if search.strip():
+        q = f"%{search.strip()}%"
+        conditions.append("(a.chart_name LIKE ? OR a.reason LIKE ? OR a.entry LIKE ? OR a.stop_loss LIKE ? OR a.take_profit LIKE ?)")
+        params.extend([q, q, q, q, q])
     if chart:
-        conditions.append("chart_name = ?")
+        conditions.append("a.chart_name = ?")
         params.append(chart)
+    if chart_type:
+        conditions.append("c.type = ?")
+        params.append(chart_type)
     if direction:
-        conditions.append("direction = ?")
+        conditions.append("a.direction = ?")
         params.append(direction)
     if min_score > 0:
-        conditions.append("score >= ?")
+        conditions.append("a.score >= ?")
         params.append(min_score)
     if date_from:
-        conditions.append("timestamp >= ?")
+        conditions.append("a.timestamp >= ?")
         params.append(date_from)
     if date_to:
-        conditions.append("timestamp <= ?")
+        conditions.append("a.timestamp <= ?")
         params.append(date_to)
     if signals_only:
-        conditions.append("sent = 1")
+        conditions.append("a.sent = 1")
+
 
     where = " AND ".join(conditions) if conditions else "1=1"
+    from_clause = "analyses a LEFT JOIN charts c ON a.chart_name = c.name" if chart_type else "analyses a"
 
     total_row = db.execute(
-        f"SELECT COUNT(*) as cnt FROM analyses WHERE {where}", params
+        f"SELECT COUNT(*) as cnt FROM {from_clause} WHERE {where}", params
     ).fetchone()
     total = total_row["cnt"] if total_row else 0
 
     offset = (page - 1) * page_size
     rows = db.execute(
-        f"SELECT a.*, (SELECT n.id FROM notifications n WHERE n.analysis_id = a.id ORDER BY n.id DESC LIMIT 1) AS notification_id FROM analyses a WHERE {where} ORDER BY a.timestamp DESC LIMIT ? OFFSET ?",
+        f"SELECT a.*, (SELECT n.id FROM notifications n WHERE n.analysis_id = a.id ORDER BY n.id DESC LIMIT 1) AS notification_id FROM {from_clause} WHERE {where} ORDER BY a.timestamp DESC LIMIT ? OFFSET ?",
         params + [page_size, offset],
     ).fetchall()
+
 
     return {
         "items": [_analysis_row(r) for r in rows],

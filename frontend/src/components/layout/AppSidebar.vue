@@ -22,6 +22,7 @@ const nav = [
   { path: '/engine',  label: 'C++ Engine',   icon: 'engine' },
   { path: '/strategy', label: 'Strategy',    icon: 'strategy' },
   { path: '/settings', label: 'Settings',    icon: 'settings' },
+  { path: '/admin',    label: 'Admin',       icon: 'shield' },
 ]
 
 function isActive(path: string) {

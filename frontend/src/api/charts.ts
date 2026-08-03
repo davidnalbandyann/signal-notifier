@@ -9,14 +9,20 @@ export function getChart(id: number) {
   return api.get<Chart>(`/api/charts/${id}`)
 }
 
-export function addChart(data: { name: string; url: string }) {
+export function addChart(data: { name: string; url: string; type?: string }) {
   return api.post<Chart>('/api/charts', data)
 }
 
-export function updateChart(id: number, data: Partial<Pick<Chart, 'name' | 'url' | 'enabled'>>) {
+export function updateChart(id: number, data: Partial<Pick<Chart, 'name' | 'url' | 'type' | 'enabled'>>) {
   return api.put<Chart>(`/api/charts/${id}`, data)
 }
+
 
 export function deleteChart(id: number) {
   return api.delete<{ ok: boolean }>(`/api/charts/${id}`)
 }
+
+export function seedCharts() {
+  return api.post<{ ok: boolean; inserted: number; charts: Chart[] }>('/api/charts/seed')
+}
+

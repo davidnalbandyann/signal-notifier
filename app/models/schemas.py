@@ -19,10 +19,21 @@ class AnalysisResult(BaseModel):
     error: Optional[str] = None
 
 
+class ChartType(str, Enum):
+    CRYPTO = "crypto"
+    FOREX = "forex"
+    STOCKS = "stocks"
+    INDICES = "indices"
+    COMMODITIES = "commodities"
+    OTHER = "other"
+
+
 class ChartConfig(BaseModel):
     name: str
     url: str
+    type: Optional[str] = "crypto"
 
 
 class URLConfig(BaseModel):
     charts: list[ChartConfig]
+

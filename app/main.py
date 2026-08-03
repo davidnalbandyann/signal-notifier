@@ -67,6 +67,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.routes.admin import router as admin_router
 from app.routes.auth import router as auth_router
 from app.routes.dashboard import router as dashboard_router
 from app.routes.charts import router as charts_router
@@ -77,6 +78,7 @@ from app.routes.strategy import router as strategy_router
 from app.routes.trigger import router as trigger_router
 from app.routes.cpp_engine import router as cpp_engine_router
 
+app.include_router(admin_router, dependencies=[Depends(get_current_user)])
 app.include_router(auth_router)
 app.include_router(cpp_engine_router, dependencies=[Depends(get_current_user)])
 app.include_router(trigger_router)

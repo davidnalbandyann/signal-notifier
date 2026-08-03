@@ -57,6 +57,12 @@ const routes = [
     meta: { crumbs: ['Strategy'], transition: 'page' },
   },
   {
+    path: '/admin',
+    name: 'admin',
+    component: () => import('@/views/AdminView.vue'),
+    meta: { crumbs: ['Admin'], transition: 'page' },
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },

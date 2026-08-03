@@ -1,31 +1,47 @@
-from fastapi import APIRouter, HTTPException
-from app.database import get_db
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
+from app.database import get_db, infer_chart_type
 
 router = APIRouter(prefix="/api/charts", tags=["charts"])
 
 
 @router.get("")
-async def list_charts():
+async def list_charts(type: Optional[str] = Query(None)):
     db = get_db()
-    rows = db.execute(
-        "SELECT * FROM charts ORDER BY id ASC"
-    ).fetchall()
+    if type:
+        rows = db.execute(
+            "SELECT * FROM charts WHERE type = ? ORDER BY id ASC", (type,)
+        ).fetchall()
+    else:
+        rows = db.execute(
+            "SELECT * FROM charts ORDER BY id ASC"
+        ).fetchall()
     return [_chart_row(r) for r in rows]
 
 
 @router.post("")
 async def create_chart(body: dict):
     db = get_db()
+    chart_type = body.get("type") or infer_chart_type(body.get("name", ""), body.get("url", ""))
     try:
         cur = db.execute(
-            "INSERT INTO charts (name, url, enabled) VALUES (?, ?, 1)",
-            (body["name"], body["url"]),
+            "INSERT INTO charts (name, url, type, enabled) VALUES (?, ?, ?, 1)",
+            (body["name"], body["url"], chart_type),
         )
         db.commit()
     except Exception:
         raise HTTPException(status_code=409, detail="Chart with this name already exists")
     row = db.execute("SELECT * FROM charts WHERE id = ?", (cur.lastrowid,)).fetchone()
     return _chart_row(row)
+
+
+@router.post("/seed")
+async def seed_charts_endpoint():
+    from app.database import seed_charts
+    inserted = seed_charts()
+    db = get_db()
+    rows = db.execute("SELECT * FROM charts ORDER BY id ASC").fetchall()
+    return {"ok": True, "inserted": inserted, "charts": [_chart_row(r) for r in rows]}
 
 
 @router.get("/{chart_id}")
@@ -42,7 +58,7 @@ async def update_chart(chart_id: int, body: dict):
     db = get_db()
     sets = []
     vals = []
-    for field in ["name", "url", "enabled"]:
+    for field in ["name", "url", "type", "enabled"]:
         if field in body:
             sets.append(f"{field} = ?")
             vals.append(body[field])
@@ -72,12 +88,15 @@ def _chart_row(r) -> dict:
     last_score = last_score_row["score"] if last_score_row else None
     last_scanned = last_score_row["timestamp"] if last_score_row else None
     enabled = r["enabled"] if "enabled" in r.keys() else 1
+    chart_type = r["type"] if ("type" in r.keys() and r["type"]) else infer_chart_type(r["name"], r["url"])
     return {
         "id": r["id"],
         "name": r["name"],
         "url": r["url"],
+        "type": chart_type,
         "enabled": bool(enabled),
         "last_score": last_score,
         "last_scanned": last_scanned,
         "status": "ok" if bool(enabled) else "paused",
     }
+

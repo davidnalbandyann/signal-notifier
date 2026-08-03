@@ -1,5 +1,7 @@
 export type Direction = 'LONG' | 'SHORT' | 'NEUTRAL'
 
+export type ChartType = 'crypto' | 'forex' | 'stocks' | 'indices' | 'commodities' | 'other'
+
 export interface Analysis {
   id: number
   chart_name: string
@@ -20,11 +22,13 @@ export interface Chart {
   id: number
   name: string
   url: string
+  type: ChartType
   enabled: boolean
   last_score: number | null
   last_scanned: string | null
   status: string
 }
+
 
 export interface Notification {
   id: number

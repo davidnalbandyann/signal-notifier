@@ -1,5 +1,316 @@
 charts:
-  - name: "BTC/USD 15m"
-    url: "https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT&interval=15"
-  - name: "ETH/USD 1h"
-    url: "https://www.tradingview.com/chart/?symbol=BINANCE:ETHUSDT&interval=60"
+- name: BTC/USDT 15m
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT&interval=15
+  enabled: false
+- name: BTC/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT&interval=60
+  enabled: false
+- name: BTC/USDT 4h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT&interval=240
+  enabled: false
+- name: ETH/USDT 15m
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:ETHUSDT&interval=15
+  enabled: false
+- name: ETH/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:ETHUSDT&interval=60
+  enabled: false
+- name: ETH/USDT 4h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:ETHUSDT&interval=240
+  enabled: false
+- name: SOL/USDT 15m
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:SOLUSDT&interval=15
+  enabled: false
+- name: SOL/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:SOLUSDT&interval=60
+  enabled: false
+- name: SOL/USDT 4h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:SOLUSDT&interval=240
+  enabled: false
+- name: XRP/USDT 15m
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:XRPUSDT&interval=15
+  enabled: false
+- name: XRP/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:XRPUSDT&interval=60
+  enabled: false
+- name: BNB/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:BNBUSDT&interval=60
+  enabled: false
+- name: DOGE/USDT 15m
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:DOGEUSDT&interval=15
+  enabled: false
+- name: DOGE/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:DOGEUSDT&interval=60
+  enabled: false
+- name: ADA/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:ADAUSDT&interval=60
+  enabled: false
+- name: AVAX/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:AVAXUSDT&interval=60
+  enabled: false
+- name: LINK/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:LINKUSDT&interval=60
+  enabled: false
+- name: DOT/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:DOTUSDT&interval=60
+  enabled: false
+- name: NEAR/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:NEARUSDT&interval=60
+  enabled: false
+- name: SUI/USDT 15m
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:SUIUSDT&interval=15
+  enabled: false
+- name: SUI/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:SUIUSDT&interval=60
+  enabled: false
+- name: APT/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:APTUSDT&interval=60
+  enabled: false
+- name: FET/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:FETUSDT&interval=60
+  enabled: false
+- name: INJ/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:INJUSDT&interval=60
+  enabled: false
+- name: RENDER/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:RENDERUSDT&interval=60
+  enabled: false
+- name: TIA/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:TIAUSDT&interval=60
+  enabled: false
+- name: PEPE/USDT 15m
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:PEPEUSDT&interval=15
+  enabled: false
+- name: PEPE/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:PEPEUSDT&interval=60
+  enabled: false
+- name: WIF/USDT 15m
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:WIFUSDT&interval=15
+  enabled: false
+- name: SHIB/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:SHIBUSDT&interval=60
+  enabled: false
+- name: ARB/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:ARBUSDT&interval=60
+  enabled: false
+- name: OP/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:OPUSDT&interval=60
+  enabled: false
+- name: POL/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:POLUSDT&interval=60
+  enabled: false
+- name: ATOM/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:ATOMUSDT&interval=60
+  enabled: false
+- name: LTC/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:LTCUSDT&interval=60
+  enabled: false
+- name: BCH/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:BCHUSDT&interval=60
+  enabled: false
+- name: TRX/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:TRXUSDT&interval=60
+  enabled: false
+- name: XLM/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:XLMUSDT&interval=60
+  enabled: false
+- name: ETC/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:ETCUSDT&interval=60
+  enabled: false
+- name: FIL/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:FILUSDT&interval=60
+  enabled: false
+- name: ICP/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:ICPUSDT&interval=60
+  enabled: false
+- name: KAS/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BYBIT:KASUSDT&interval=60
+  enabled: false
+- name: STX/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:STXUSDT&interval=60
+  enabled: false
+- name: SEI/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:SEIUSDT&interval=60
+  enabled: false
+- name: JUP/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:JUPUSDT&interval=60
+  enabled: false
+- name: PYTH/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:PYTHUSDT&interval=60
+  enabled: false
+- name: ONDO/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BYBIT:ONDOUSDT&interval=60
+  enabled: false
+- name: FLOKI/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:FLOKIUSDT&interval=60
+  enabled: false
+- name: BONK/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:BONKUSDT&interval=60
+  enabled: false
+- name: POPCAT/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BYBIT:POPCATUSDT&interval=60
+  enabled: false
+- name: AAVE/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:AAVEUSDT&interval=60
+  enabled: false
+- name: UNI/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:UNIUSDT&interval=60
+  enabled: false
+- name: MKR/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:MKRUSDT&interval=60
+  enabled: false
+- name: LDO/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:LDOUSDT&interval=60
+  enabled: false
+- name: PENDLE/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:PENDLEUSDT&interval=60
+  enabled: false
+- name: CRV/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:CRVUSDT&interval=60
+  enabled: false
+- name: DYDX/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:DYDXUSDT&interval=60
+  enabled: false
+- name: GMX/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:GMXUSDT&interval=60
+  enabled: false
+- name: RUNE/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:RUNEUSDT&interval=60
+  enabled: false
+- name: THETA/USDT 1h
+  url: https://www.tradingview.com/chart/?symbol=BINANCE:THETAUSDT&interval=60
+  enabled: false
+- name: NVDA 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:NVDA&interval=60
+  enabled: false
+- name: NVDA 1d
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:NVDA&interval=1D
+  enabled: false
+- name: AAPL 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:AAPL&interval=60
+  enabled: false
+- name: AAPL 1d
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:AAPL&interval=1D
+  enabled: false
+- name: TSLA 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:TSLA&interval=60
+  enabled: false
+- name: TSLA 1d
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:TSLA&interval=1D
+  enabled: false
+- name: MSFT 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:MSFT&interval=60
+  enabled: false
+- name: AMZN 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:AMZN&interval=60
+  enabled: false
+- name: GOOGL 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:GOOGL&interval=60
+  enabled: false
+- name: META 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:META&interval=60
+  enabled: false
+- name: AMD 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:AMD&interval=60
+  enabled: false
+- name: NFLX 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:NFLX&interval=60
+  enabled: false
+- name: COIN 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:COIN&interval=60
+  enabled: false
+- name: PLTR 1h
+  url: https://www.tradingview.com/chart/?symbol=NYSE:PLTR&interval=60
+  enabled: false
+- name: MSTR 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:MSTR&interval=60
+  enabled: false
+- name: BABA 1h
+  url: https://www.tradingview.com/chart/?symbol=NYSE:BABA&interval=60
+  enabled: false
+- name: SPY 1h
+  url: https://www.tradingview.com/chart/?symbol=AMEX:SPY&interval=60
+  enabled: false
+- name: SPY 1d
+  url: https://www.tradingview.com/chart/?symbol=AMEX:SPY&interval=1D
+  enabled: false
+- name: QQQ 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:QQQ&interval=60
+  enabled: false
+- name: QQQ 1d
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:QQQ&interval=1D
+  enabled: false
+- name: IWM 1h
+  url: https://www.tradingview.com/chart/?symbol=AMEX:IWM&interval=60
+  enabled: false
+- name: GLD 1h
+  url: https://www.tradingview.com/chart/?symbol=AMEX:GLD&interval=60
+  enabled: false
+- name: SLV 1h
+  url: https://www.tradingview.com/chart/?symbol=AMEX:SLV&interval=60
+  enabled: false
+- name: TLT 1h
+  url: https://www.tradingview.com/chart/?symbol=NASDAQ:TLT&interval=60
+  enabled: false
+- name: USO 1h
+  url: https://www.tradingview.com/chart/?symbol=AMEX:USO&interval=60
+  enabled: false
+- name: EUR/USD 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:EURUSD&interval=60
+  enabled: false
+- name: EUR/USD 4h
+  url: https://www.tradingview.com/chart/?symbol=FX:EURUSD&interval=240
+  enabled: false
+- name: GBP/USD 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:GBPUSD&interval=60
+  enabled: false
+- name: GBP/USD 4h
+  url: https://www.tradingview.com/chart/?symbol=FX:GBPUSD&interval=240
+  enabled: false
+- name: USD/JPY 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:USDJPY&interval=60
+  enabled: false
+- name: AUD/USD 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:AUDUSD&interval=60
+  enabled: false
+- name: USD/CAD 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:USDCAD&interval=60
+  enabled: false
+- name: USD/CHF 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:USDCHF&interval=60
+  enabled: false
+- name: NZD/USD 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:NZDUSD&interval=60
+  enabled: false
+- name: EUR/GBP 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:EURGBP&interval=60
+  enabled: false
+- name: EUR/JPY 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:EURJPY&interval=60
+  enabled: false
+- name: GBP/JPY 1h
+  url: https://www.tradingview.com/chart/?symbol=FX:GBPJPY&interval=60
+  enabled: false
+- name: GOLD/USD 1h
+  url: https://www.tradingview.com/chart/?symbol=OANDA:XAUUSD&interval=60
+  enabled: false
+- name: GOLD/USD 4h
+  url: https://www.tradingview.com/chart/?symbol=OANDA:XAUUSD&interval=240
+  enabled: false
+- name: SILVER/USD 1h
+  url: https://www.tradingview.com/chart/?symbol=OANDA:XAGUSD&interval=60
+  enabled: false
+- name: OIL/USD 1h
+  url: https://www.tradingview.com/chart/?symbol=TVC:USOIL&interval=60
+  enabled: false
+- name: S&P 500 Index 1h
+  url: https://www.tradingview.com/chart/?symbol=FOREXCOM:SPXUSD&interval=60
+  enabled: false
+- name: Nasdaq 100 Index 1h
+  url: https://www.tradingview.com/chart/?symbol=FOREXCOM:NSXUSD&interval=60
+  enabled: false
+- name: Dow Jones 1h
+  url: https://www.tradingview.com/chart/?symbol=FOREXCOM:DJI&interval=60
+  enabled: false
+- name: DAX 40 1h
+  url: https://www.tradingview.com/chart/?symbol=INDEX:DEU40&interval=60
+  enabled: false

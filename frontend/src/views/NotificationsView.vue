@@ -24,13 +24,25 @@ const total = ref(0)
 const loading = ref(true)
 const page = ref(1)
 const pageSize = ref(20)
+const searchQuery = ref('')
 const actionLoading = ref<number | null>(null)
 const deleteTarget = ref<number | null>(null)
+
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+function onSearchInput() {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => {
+    page.value = 1
+    load()
+  }, 300)
+}
 
 async function load() {
   loading.value = true
   try {
-    const res = await getNotifications({ page: String(page.value), page_size: String(pageSize.value) })
+    const params: Record<string, string> = { page: String(page.value), page_size: String(pageSize.value) }
+    if (searchQuery.value.trim()) params.search = searchQuery.value.trim()
+    const res = await getNotifications(params)
     items.value = res.items
     total.value = res.total
   } catch { toast.err('Failed to load notifications') }
@@ -77,7 +89,26 @@ function fmt(iso: string) {
         <div class="grow"></div>
       </header>
 
+      <!-- Standalone Search Bar Section -->
+      <div v-if="items.length > 0 || searchQuery" class="search-card card">
+        <div class="search-box">
+          <AppIcon name="search" :size="14" class="search-ic" />
+          <input
+            v-model="searchQuery"
+            @input="onSearchInput"
+            type="text"
+            class="input search-input mono"
+            placeholder="Search signals by symbol or message..."
+          />
+          <button v-if="searchQuery" class="clear-search-btn" @click="searchQuery = ''; page = 1; load()" title="Clear search">
+            <AppIcon name="x" :size="12" />
+          </button>
+        </div>
+      </div>
+
+
       <AppLoading v-if="loading" label="Loading signals…" />
+
 
       <div v-else-if="items.length === 0" class="card empty-card">
         <EmptyState
@@ -164,7 +195,25 @@ function fmt(iso: string) {
 .pg-title { font: 600 18px var(--font-sans); letter-spacing: -0.015em; }
 .pg-sub { font: 400 12px var(--font-mono); color: var(--muted); margin-top: 3px; }
 
+.search-card {
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.search-box { position: relative; width: 100%; display: flex; align-items: center; }
+.search-ic { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
+.search-input { width: 100%; height: 34px; font-size: 12.5px; padding: 0 28px 0 32px; }
+.clear-search-btn {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 3px;
+  display: flex; align-items: center; justify-content: center; border-radius: 4px;
+}
+.clear-search-btn:hover { color: var(--fg); background: var(--surface-2); }
+
 .empty-card { padding: 0; }
+
+
 
 .list-card { padding: 0; overflow: hidden; }
 .list-head, .list-row {
