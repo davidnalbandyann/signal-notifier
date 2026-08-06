@@ -95,12 +95,55 @@ def init_db() -> None:
             updated_at TEXT DEFAULT (datetime('now'))
         );
 
+        CREATE TABLE IF NOT EXISTS cpp_strategies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            engine_type TEXT NOT NULL,
+            params TEXT DEFAULT '{}',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS ai_strategies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            content TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS active_strategies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            mode TEXT NOT NULL CHECK(mode IN ('hybrid', 'ai_only', 'cpp_only')),
+            enabled INTEGER DEFAULT 1,
+            chart_id INTEGER REFERENCES charts(id) ON DELETE RESTRICT,
+            cpp_strategy_id INTEGER REFERENCES cpp_strategies(id) ON DELETE RESTRICT,
+            ai_strategy_id INTEGER REFERENCES ai_strategies(id) ON DELETE RESTRICT,
+            min_score REAL,
+            cooldown_minutes INTEGER DEFAULT 15,
+            last_triggered_at TEXT,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_active_strategies_enabled ON active_strategies(enabled);
+        CREATE INDEX IF NOT EXISTS idx_active_strategies_chart ON active_strategies(chart_id);
+
         CREATE INDEX IF NOT EXISTS idx_analyses_chart ON analyses(chart_name);
         CREATE INDEX IF NOT EXISTS idx_analyses_timestamp ON analyses(timestamp);
         CREATE INDEX IF NOT EXISTS idx_analyses_score ON analyses(score);
         CREATE INDEX IF NOT EXISTS idx_analyses_direction ON analyses(direction);
         CREATE INDEX IF NOT EXISTS idx_notifications_timestamp ON notifications(timestamp);
     """)
+    try:
+        db.execute("ALTER TABLE charts ADD COLUMN symbol TEXT")
+    except Exception:
+        pass
+    try:
+        db.execute("ALTER TABLE charts ADD COLUMN timeframe TEXT DEFAULT '15m'")
+    except Exception:
+        pass
     try:
         db.execute("ALTER TABLE charts ADD COLUMN type TEXT DEFAULT 'crypto'")
     except Exception:
@@ -111,6 +154,18 @@ def init_db() -> None:
         pass
     try:
         db.execute("ALTER TABLE analyses ADD COLUMN signal_json TEXT")
+    except Exception:
+        pass
+    try:
+        db.execute("ALTER TABLE analyses ADD COLUMN active_strategy_id INTEGER REFERENCES active_strategies(id)")
+    except Exception:
+        pass
+    try:
+        db.execute("ALTER TABLE analyses ADD COLUMN active_strategy_name TEXT")
+    except Exception:
+        pass
+    try:
+        db.execute("ALTER TABLE notifications ADD COLUMN active_strategy_name TEXT")
     except Exception:
         pass
     db.commit()
@@ -128,6 +183,75 @@ def init_db() -> None:
         pass
 
     seed_charts()
+    seed_strategies()
+
+
+def seed_strategies() -> int:
+    """Seed the libraries and active_strategies from legacy sources."""
+    import json
+    db = get_db()
+    inserted = 0
+
+    # Seed AI Strategies
+    ai_count = db.execute("SELECT COUNT(*) AS c FROM ai_strategies").fetchone()["c"]
+    ai_id = None
+    if ai_count == 0:
+        content = ""
+        prompt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prompts", "strategy.md")
+        if os.path.exists(prompt_path):
+            try:
+                with open(prompt_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except Exception:
+                pass
+        if content:
+            cur = db.execute("INSERT INTO ai_strategies (name, content) VALUES (?, ?)", ("Default AI Strategy", content))
+            ai_id = cur.lastrowid
+            inserted += 1
+    else:
+        ai_id = db.execute("SELECT id FROM ai_strategies ORDER BY id ASC LIMIT 1").fetchone()["id"]
+
+    # Seed C++ Strategies
+    cpp_count = db.execute("SELECT COUNT(*) AS c FROM cpp_strategies").fetchone()["c"]
+    cpp_id = None
+    if cpp_count == 0:
+        config_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "trading-signal-engine", "config.json",
+        )
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            strat_cfg = cfg.get("strategy", {})
+            engine_type = strat_cfg.get("type", "")
+            params = strat_cfg.get("params", {})
+            if engine_type:
+                cur = db.execute(
+                    "INSERT INTO cpp_strategies (name, engine_type, params) VALUES (?, ?, ?)",
+                    (f"Legacy {engine_type}", engine_type, json.dumps(params)),
+                )
+                cpp_id = cur.lastrowid
+                inserted += 1
+        except Exception:
+            pass
+    else:
+        row = db.execute("SELECT id FROM cpp_strategies ORDER BY id ASC LIMIT 1").fetchone()
+        if row: cpp_id = row["id"]
+
+    # Seed Active Strategies (Hybrid by default if both exist)
+    active_count = db.execute("SELECT COUNT(*) AS c FROM active_strategies").fetchone()["c"]
+    if active_count == 0 and ai_id and cpp_id:
+        chart_row = db.execute("SELECT id FROM charts ORDER BY id ASC LIMIT 1").fetchone()
+        if chart_row:
+            chart_id = chart_row["id"]
+            db.execute(
+                "INSERT INTO active_strategies (name, mode, enabled, chart_id, cpp_strategy_id, ai_strategy_id) VALUES (?, ?, ?, ?, ?, ?)",
+                ("Legacy Hybrid Pipeline", "hybrid", 1, chart_id, cpp_id, ai_id)
+            )
+            inserted += 1
+
+    db.commit()
+    return inserted
 
 
 def seed_charts() -> int:

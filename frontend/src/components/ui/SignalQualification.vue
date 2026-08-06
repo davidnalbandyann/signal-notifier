@@ -13,30 +13,33 @@ import { computed } from 'vue'
 import type { Direction } from '@/types'
 
 const props = withDefaults(defineProps<{
-  score: number
-  threshold: number | null
-  direction: Direction | string
+  score?: number | null
+  threshold?: number | null
+  direction?: Direction | string | null
   sent?: boolean | null
   notifyEnabled?: boolean | null
   density?: 'compact' | 'rich'
 }>(), {
+  score: 0,
+  threshold: null,
+  direction: 'NEUTRAL',
   sent: null,
   notifyEnabled: null,
   density: 'compact',
 })
 
-const fmtScore = computed(() => props.score.toFixed(1))
+const fmtScore = computed(() => props.score != null ? props.score.toFixed(1) : '—')
 const fmtThreshold = computed(() =>
   props.threshold != null ? props.threshold.toFixed(1) : '—'
 )
 
 const passing = computed(() =>
-  props.threshold != null && props.threshold > 0 && props.score >= props.threshold
+  props.threshold != null && props.threshold > 0 && props.score != null && props.score >= props.threshold
 )
 
 const eligible = computed(() => {
   const d = props.direction
-  if (d === 'NEUTRAL') return false
+  if (!d || d === 'NEUTRAL') return false
   if (props.notifyEnabled === false) return false
   return true
 })

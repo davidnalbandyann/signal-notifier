@@ -14,6 +14,7 @@ struct Signal {
     double stop_loss = 0.0;
     double take_profit = 0.0;
     nlohmann::json extra;    // bandwidth, volume_ratio, rsi, etc.
+    int active_strategy_id = 0;
 };
 
 class TradingStrategy {

@@ -9,6 +9,7 @@ import BaseButton from '@/components/ui/BaseButton.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import AppToast from '@/components/ui/AppToast.vue'
 import AppLoading from '@/components/ui/AppLoading.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 import ConfirmModal from '@/components/ui/ConfirmModal.vue'
 import { getAnalysis, getScreenshot, resendNotification, reanalyze, deleteAnalysis } from '@/api/analyses'
 import { useToast } from '@/composables/useToast'
@@ -185,6 +186,16 @@ function fmtFull(iso: string) {
           <div class="reasoning">{{ analysis.reason }}</div>
         </section>
       </template>
+
+      <div v-else class="card empty-card">
+        <EmptyState
+          icon="history"
+          title="Analysis Not Found"
+          description="The requested analysis record does not exist or has been deleted."
+          action="Back to History"
+          @action="router.push('/history')"
+        />
+      </div>
     </div>
     <AppToast />
     <ConfirmModal

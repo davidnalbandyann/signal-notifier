@@ -1,10 +1,7 @@
 import asyncio
-import base64
-import re
-import structlog
 import time
-import yaml
-from datetime import datetime, timezone
+import structlog
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -12,14 +9,12 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 from app.config.settings import Settings
 from app.database import get_db
-from app.models.schemas import URLConfig, ChartConfig
 from app.state import get_paused, set_last_scan
 from app.services.browser import BrowserService
 from app.services.gemini import NvidiaService
 from app.services.telegram import TelegramService
 
 logger = structlog.get_logger(__name__)
-
 
 class SchedulerService:
     def __init__(
@@ -59,32 +54,56 @@ class SchedulerService:
             logger.info("cycle_skipped_paused")
             return
 
-        # Check if C++ engine bypass is enabled — skip AI analysis cycle
         db = get_db()
-        bypass_row = db.execute(
-            "SELECT value FROM settings WHERE key = ?", ("CPP_BYPASS_AI",)
-        ).fetchone()
-        cpp_bypass = bypass_row and bypass_row["value"].lower() in ("true", "1", "yes")
-        if cpp_bypass:
-            logger.info("cycle_skipped_cpp_bypass")
+        # Fetch enabled ai_only active strategies
+        rows = db.execute(
+            "SELECT * FROM active_strategies WHERE enabled = 1 AND mode = 'ai_only' ORDER BY id ASC"
+        ).fetchall()
+        
+        if not rows:
+            logger.info("cycle_skipped_no_ai_strategies")
             set_last_scan()
             return
 
-        charts = self._load_charts()
-        if not charts:
-            logger.warning("no_charts_configured")
-            return
-
-        logger.info("cycle_started", chart_count=len(charts))
+        active_strategies = [dict(r) for r in rows]
+        logger.info("cycle_started", strategies_count=len(active_strategies))
         start_time = asyncio.get_event_loop().time()
+        
+        now_dt = datetime.now(timezone.utc)
 
-        for chart in charts:
+        for strategy in active_strategies:
             try:
-                await self._process_chart(chart)
+                # 1. Cooldown check
+                if strategy["last_triggered_at"]:
+                    try:
+                        last_dt = datetime.fromisoformat(strategy["last_triggered_at"])
+                        cooldown_mins = strategy["cooldown_minutes"] or 15
+                        if now_dt - last_dt < timedelta(minutes=cooldown_mins):
+                            logger.info("scheduler_cooldown_skipped", sid=strategy["id"])
+                            continue
+                    except ValueError:
+                        pass
+                
+                # 2. Get chart and ai prompt
+                chart = db.execute("SELECT * FROM charts WHERE id = ?", (strategy["chart_id"],)).fetchone()
+                if not chart:
+                    continue
+                    
+                ai_prompt = ""
+                if strategy["ai_strategy_id"]:
+                    ai_row = db.execute("SELECT content FROM ai_strategies WHERE id = ?", (strategy["ai_strategy_id"],)).fetchone()
+                    if ai_row:
+                        ai_prompt = ai_row["content"]
+                        
+                if not ai_prompt:
+                    logger.warning("ai_strategy_empty", sid=strategy["id"])
+                    continue
+                
+                await self._process_strategy(strategy, chart, ai_prompt)
             except Exception as e:
                 logger.error(
-                    "chart_processing_failed",
-                    chart=chart.name,
+                    "strategy_processing_failed",
+                    sid=strategy["id"],
                     error=str(e),
                 )
             await asyncio.sleep(self.settings.AI_CALL_DELAY)
@@ -93,111 +112,63 @@ class SchedulerService:
         elapsed = asyncio.get_event_loop().time() - start_time
         logger.info("cycle_completed", duration_seconds=round(elapsed, 2))
 
-    def _load_charts(self) -> list[ChartConfig]:
-        try:
-            db = get_db()
-            rows = db.execute("SELECT name, url FROM charts WHERE enabled = 1 ORDER BY id ASC").fetchall()
-            if not rows:
-                cnt_row = db.execute("SELECT COUNT(*) as cnt FROM charts").fetchone()
-                cnt = cnt_row["cnt"] if cnt_row else 0
-                if cnt == 0:
-                    from app.database import seed_charts
-                    seed_charts()
-                    rows = db.execute("SELECT name, url FROM charts WHERE enabled = 1 ORDER BY id ASC").fetchall()
-            if rows:
-                return [ChartConfig(name=r["name"], url=r["url"]) for r in rows]
-        except Exception as e:
-            logger.error("db_load_charts_failed", error=str(e))
 
-        urls_file = Path(self.settings.URLS_FILE)
-        if not urls_file.exists():
-            logger.error("urls_file_not_found", path=str(urls_file))
-            return []
+    async def _process_strategy(self, strategy: dict, chart, ai_prompt: str) -> None:
+        logger.info("processing_strategy", sid=strategy["id"], name=strategy["name"], chart=chart["name"])
 
-        try:
-            data = yaml.safe_load(urls_file.read_text(encoding="utf-8"))
-            config = URLConfig(**data)
-            return config.charts
-        except Exception as e:
-            logger.error("urls_file_parse_error", error=str(e))
-            return []
-
-    async def _process_chart(self, chart: ChartConfig) -> None:
-        logger.info("processing_chart", chart=chart.name)
-
-        screenshot = await self.browser.capture(chart.name, chart.url)
-        logger.info(
-            "screenshot_captured",
-            chart=chart.name,
-            size_bytes=len(screenshot),
-        )
-
-        analysis = await self.gemini.analyze(screenshot)
-        logger.info(
-            "analysis_received",
-            chart=chart.name,
-            score=analysis.score,
-            direction=analysis.direction.value,
-        )
-
+        # Capture Screenshot
+        screenshot = await self.browser.capture(chart["name"], chart["url"])
+        
+        # Analyze using NVIDIA AI
+        analysis = await self.gemini.analyze(screenshot, ai_prompt)
+        
         now = datetime.now(timezone.utc).isoformat()
-
         db = get_db()
-        row = db.execute("SELECT value FROM settings WHERE key = ?", ("NOTIFICATION_THRESHOLD",)).fetchone()
-        threshold = self.settings.NOTIFICATION_THRESHOLD
-        if row:
-            try:
-                threshold = float(row["value"])
-            except (ValueError, TypeError):
-                logger.warning("invalid_threshold_setting", value=row["value"])
+        
+        # Threshold Evaluation
+        threshold = float(strategy["min_score"]) if strategy["min_score"] is not None else float(
+            (db.execute("SELECT value FROM settings WHERE key = 'NOTIFICATION_THRESHOLD'").fetchone() or {"value": 7.0})["value"]
+        )
+        
         sent = analysis.score >= threshold and analysis.direction.value != "NEUTRAL"
 
-        db = get_db()
-        screenshot_filename = f"{chart.name.replace('/', '_')}_{int(time.time())}.png"
+        # Persist Image
+        screenshot_filename = f"{chart['name'].replace('/', '_')}_{int(time.time())}.png"
         screenshot_path = Path("data/screenshots") / screenshot_filename
         screenshot_path.parent.mkdir(parents=True, exist_ok=True)
         screenshot_path.write_bytes(screenshot)
+        
+        # Insert Analysis
         cur = db.execute(
-            "INSERT INTO analyses (chart_name, timestamp, score, direction, reason, entry, stop_loss, take_profit, sent, screenshot, error) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            """INSERT INTO analyses 
+            (chart_name, timestamp, score, direction, reason, entry, stop_loss, take_profit, sent, screenshot, error, active_strategy_id, active_strategy_name) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
-                chart.name, now, analysis.score, analysis.direction.value,
+                chart["name"], now, analysis.score, analysis.direction.value,
                 analysis.reason, analysis.entry, analysis.stop_loss,
                 analysis.take_profit, int(sent), screenshot_filename,
-                analysis.error,
+                analysis.error, strategy["id"], strategy["name"]
             ),
         )
         analysis_id = cur.lastrowid
 
         if sent:
-            timeframe = _extract_timeframe(chart.url)
-            caption = await self.telegram.notify(chart.name, analysis, screenshot, timeframe=timeframe, analysis_id=analysis_id)
+            timeframe = chart["timeframe"] or "15m"
+            # We don't have C++ body for AI Only, so no extra caption
+            caption = await self.telegram.notify(chart["name"], analysis, screenshot, timeframe=timeframe, analysis_id=analysis_id)
             db.execute(
-                "INSERT INTO notifications (analysis_id, chart_name, timestamp, score, direction, status, caption) "
-                "VALUES (?, ?, ?, ?, ?, 'sent', ?)",
-                (analysis_id, chart.name, now, analysis.score, analysis.direction.value, caption),
+                """INSERT INTO notifications 
+                (analysis_id, chart_name, timestamp, score, direction, status, caption, active_strategy_name) 
+                VALUES (?, ?, ?, ?, ?, 'sent', ?, ?)""",
+                (analysis_id, chart["name"], now, analysis.score, analysis.direction.value, caption, strategy["name"]),
             )
+            db.execute("UPDATE active_strategies SET last_triggered_at = ? WHERE id = ?", (now, strategy["id"]))
         else:
             logger.info(
                 "threshold_not_met",
-                chart=chart.name,
+                chart=chart["name"],
                 score=analysis.score,
                 threshold=threshold,
             )
 
         db.commit()
-
-
-TV_INTERVAL_MAP = {
-    "1": "1m", "5": "5m", "15": "15m", "30": "30m",
-    "60": "1h", "120": "2h", "240": "4h",
-    "1D": "1d", "1W": "1w", "1M": "1M",
-}
-
-
-def _extract_timeframe(url: str) -> str:
-    m = re.search(r"[?&]interval=(\w+)", url)
-    if m:
-        raw = m.group(1)
-        return TV_INTERVAL_MAP.get(raw, raw)
-    return ""

@@ -15,6 +15,7 @@ def auth_headers():
 def setup_database():
     init_db()
     db = get_db()
+    db.execute("DELETE FROM active_strategies")
     db.execute("DELETE FROM notifications")
     db.execute("DELETE FROM analyses")
     db.execute("DELETE FROM charts")

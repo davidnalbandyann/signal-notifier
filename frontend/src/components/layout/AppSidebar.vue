@@ -16,7 +16,6 @@ let poll: ReturnType<typeof setInterval> | null = null
 
 const nav = [
   { path: '/',        label: 'Dashboard',    icon: 'dashboard' },
-  { path: '/charts',  label: 'Charts',       icon: 'charts' },
   { path: '/history', label: 'History',      icon: 'history' },
   { path: '/notifications', label: 'Signals', icon: 'bell' },
   { path: '/engine',  label: 'C++ Engine',   icon: 'engine' },

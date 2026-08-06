@@ -15,12 +15,6 @@ const routes = [
     meta: { crumbs: ['Dashboard'], transition: 'page' },
   },
   {
-    path: '/charts',
-    name: 'charts',
-    component: () => import('@/views/ChartsView.vue'),
-    meta: { crumbs: ['Charts'], transition: 'page' },
-  },
-  {
     path: '/history',
     name: 'history',
     component: () => import('@/views/HistoryView.vue'),

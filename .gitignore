@@ -4,6 +4,8 @@ __pycache__/
 dist/
 build/
 .venv/
+.impeccable/
+.claude/
 venv/
 env/
 .env
@@ -23,6 +25,7 @@ test-results/
 AGENTS.md
 .opencode/
 design/
+plans/
 
 # Frontend
 frontend/node_modules/

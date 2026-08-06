@@ -17,6 +17,7 @@ bool SignalSender::send(const Signal& s, const std::string& timeframe) {
     payload["entry_price"] = s.entry_price;
     payload["timeframe"] = timeframe;
     payload["extra"] = s.extra;
+    payload["active_strategy_id"] = s.active_strategy_id;
 
     std::string body = payload.dump();
 

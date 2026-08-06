@@ -3,7 +3,8 @@
   "permission": {
     "skill": {
       "frontend-design": "allow",
-      "webapp-testing": "allow"
+      "webapp-testing": "allow",
+      "better-harness": "ask"
     }
   }
 }

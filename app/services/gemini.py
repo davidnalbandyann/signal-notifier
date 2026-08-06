@@ -21,10 +21,24 @@ class NvidiaService:
         self._prompt_path = Path("prompts/strategy.md")
 
     def _load_prompt(self) -> str:
-        return self._prompt_path.read_text(encoding="utf-8")
+        try:
+            from app.database import get_db
 
-    async def analyze(self, screenshot_bytes: bytes) -> AnalysisResult:
-        prompt = self._load_prompt()
+            db = get_db()
+            row = db.execute(
+                "SELECT content FROM strategies WHERE type = 'prompt' AND active = 1 "
+                "ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+            if row and row["content"]:
+                return row["content"]
+        except Exception:
+            pass
+        if self._prompt_path.exists():
+            return self._prompt_path.read_text(encoding="utf-8")
+        return ""
+
+    async def analyze(self, screenshot_bytes: bytes, prompt: str | None = None) -> AnalysisResult:
+        prompt = prompt if prompt is not None else self._load_prompt()
         last_error = None
 
         for attempt in range(1, 4):

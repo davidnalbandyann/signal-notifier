@@ -30,10 +30,30 @@ def get_pk_field(table_name: str) -> str:
     return TABLE_PK_MAP[table_name]
 
 
+FILTER_COLUMNS = {
+    "enabled": ("enabled", lambda v: ("=", int(v))),
+    "type": ("type", lambda v: ("=", v)),
+    "direction": ("direction", lambda v: ("=", v.upper())),
+    "min_score": ("score", lambda v: (">=", float(v))),
+    "sent": ("sent", lambda v: ("=", int(v))),
+    "status": ("status", lambda v: ("=", v)),
+    "date_from": ("timestamp", lambda v: (">=", v)),
+    "date_to": ("timestamp", lambda v: ("<=", v + "T23:59:59" if len(v) == 10 else v)),
+}
+
+
 @router.get("/{table}")
 def list_admin_records(
     table: str,
     search: Optional[str] = None,
+    enabled: Optional[str] = None,
+    type: Optional[str] = None,
+    direction: Optional[str] = None,
+    min_score: Optional[float] = None,
+    sent: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     sort_by: Optional[str] = None,
@@ -49,6 +69,29 @@ def list_admin_records(
 
     where_clauses = []
     params: List[Any] = []
+
+    filter_values = {
+        "enabled": enabled,
+        "type": type,
+        "direction": direction,
+        "min_score": min_score,
+        "sent": sent,
+        "status": status,
+        "date_from": date_from,
+        "date_to": date_to,
+    }
+    for filter_key, value in filter_values.items():
+        if value is None or value == "":
+            continue
+        column, build_op = FILTER_COLUMNS[filter_key]
+        if column not in columns:
+            continue
+        try:
+            op, param = build_op(value)
+        except (TypeError, ValueError):
+            continue
+        where_clauses.append(f"{column} {op} ?")
+        params.append(param)
 
     if search:
         search_like = f"%{search}%"

@@ -67,38 +67,89 @@ int main(int argc, char* argv[]) {
 
     spdlog::info("config loaded: {}", config_path);
 
-    // Instantiate pipeline
-    auto source = createDataSource(cfg["data_source"]);
-    g_source = source.get();
+    std::string webhook_url = cfg.value("webhook_url", std::string("http://127.0.0.1:8000/trigger"));
+    int timeout_sec = 35;
+    std::string auth_token = "";
+    
+    if (cfg.contains("python_service")) {
+        auto& svc = cfg["python_service"];
+        webhook_url = svc.value("url", webhook_url);
+        timeout_sec = svc.value("timeout_sec", timeout_sec);
+        auth_token = svc.value("auth_token", auth_token);
+    }
+    
+    SignalSender sender(webhook_url, timeout_sec, auth_token);
 
-    auto strategy = createStrategy(cfg["strategy"]);
+    struct Pipeline {
+        int active_strategy_id;
+        std::string name;
+        std::string symbol;
+        std::string timeframe;
+        std::unique_ptr<DataSource> source;
+        std::unique_ptr<TradingStrategy> strategy;
+    };
 
-    auto& svc = cfg["python_service"];
-    SignalSender sender(
-        svc["url"].get<std::string>(),
-        svc["timeout_sec"].get<int>(),
-        svc.value("auth_token", std::string())
-    );
+    std::vector<Pipeline> pipelines;
 
-    std::string timeframe = cfg["data_source"].value("timeframe", std::string("15m"));
-
-    source->start();
-    spdlog::info("engine running...");
-
-    while (g_running) {
-        OHLCV candle;
-        if (source->pollCandle(candle)) {
-            spdlog::info("candle: {} close={} ts={} vol={}",
-                         candle.symbol, candle.close, candle.timestamp, candle.volume);
-            strategy->onCandle(candle);
-            if (auto sig = strategy->checkSignal()) {
-                sender.send(*sig, timeframe);
-            }
+    if (cfg.contains("strategies") && cfg["strategies"].is_array()) {
+        for (auto& s_cfg : cfg["strategies"]) {
+            Pipeline p;
+            p.active_strategy_id = s_cfg.value("active_strategy_id", 0);
+            p.name = s_cfg.value("active_strategy_name", "unnamed");
+            p.symbol = s_cfg.value("symbol", "BTCUSDT");
+            p.timeframe = s_cfg.value("timeframe", "15m");
+            
+            nlohmann::json ds_cfg;
+            ds_cfg["type"] = "binance";
+            ds_cfg["symbol"] = p.symbol;
+            ds_cfg["timeframe"] = p.timeframe;
+            
+            p.source = createDataSource(ds_cfg);
+            p.strategy = createStrategy(s_cfg);
+            
+            pipelines.push_back(std::move(p));
         }
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+    } else if (cfg.contains("strategy") && cfg.contains("data_source")) {
+        // legacy config support
+        Pipeline p;
+        p.active_strategy_id = 0;
+        p.name = "legacy";
+        p.symbol = cfg["data_source"].value("symbol", "BTCUSDT");
+        p.timeframe = cfg["data_source"].value("timeframe", "15m");
+        p.source = createDataSource(cfg["data_source"]);
+        p.strategy = createStrategy(cfg["strategy"]);
+        pipelines.push_back(std::move(p));
     }
 
-    source->stop();
+    if (pipelines.empty()) {
+        spdlog::warn("No pipelines configured. Exiting.");
+        return 0;
+    }
+
+    for (auto& p : pipelines) {
+        p.source->start();
+    }
+    spdlog::info("engine running with {} active pipelines...", pipelines.size());
+
+    while (g_running) {
+        for (auto& p : pipelines) {
+            OHLCV candle;
+            if (p.source->pollCandle(candle)) {
+                spdlog::info("[{}] candle: {} close={} ts={} vol={}",
+                             p.active_strategy_id, candle.symbol, candle.close, candle.timestamp, candle.volume);
+                p.strategy->onCandle(candle);
+                if (auto sig = p.strategy->checkSignal()) {
+                    sig->active_strategy_id = p.active_strategy_id;
+                    sender.send(*sig, p.timeframe);
+                }
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+
+    for (auto& p : pipelines) {
+        p.source->stop();
+    }
     spdlog::info("engine stopped");
 
     return 0;

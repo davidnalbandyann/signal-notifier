@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import AppShell from '@/components/layout/AppShell.vue'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import BaseModal from '@/components/ui/BaseModal.vue'
 import BaseToggle from '@/components/ui/BaseToggle.vue'
@@ -90,7 +89,10 @@ watch([newUrl, newName], () => {
 
 async function load() {
   loading.value = true
-  try { charts.value = await getCharts() }
+  try {
+    const res = await getCharts()
+    charts.value = Array.isArray(res) ? res : []
+  }
   catch { toast.err('Failed to load charts') }
   finally { loading.value = false }
 }
@@ -210,6 +212,7 @@ function typeBadgeLabel(type: ChartType) {
     default: return 'Other'
   }
 }
+
 const hasActiveChartFilters = computed(() => filterTab.value !== 'all' || filterType.value !== 'all' || searchQuery.value.trim() !== '')
 
 function resetChartFilters() {
@@ -220,138 +223,130 @@ function resetChartFilters() {
 </script>
 
 <template>
-  <AppShell>
-    <div class="pg">
-      <header class="pg-head">
-        <div>
-          <h1 class="pg-title">Charts</h1>
-          <div class="pg-sub">{{ charts.length }} total &middot; {{ activeCount }} active &middot; {{ pausedCount }} paused</div>
+  <div class="tab-wrapper">
+    <div class="header-actions">
+      <BaseButton variant="ghost" @click="handleSeed" :disabled="seedLoading">
+        <AppIcon v-if="!seedLoading" name="refresh" :size="13" />
+        <span v-else class="spinner sm"></span>
+        {{ seedLoading ? 'Seeding…' : 'Seed default charts' }}
+      </BaseButton>
+      <BaseButton @click="openAdd">
+        <AppIcon name="plus" :size="14" :stroke="2.5" />
+        Add chart
+      </BaseButton>
+    </div>
+
+    <!-- Search Bar Section -->
+    <div v-if="charts.length > 0" class="search-card card">
+      <div class="search-box">
+        <AppIcon name="search" :size="14" class="search-ic" />
+        <input
+          v-model="searchQuery"
+          type="text"
+          class="input search-input mono"
+          placeholder="Search symbols, types, URLs..."
+        />
+        <button v-if="searchQuery" class="clear-search-btn" @click="searchQuery = ''" title="Clear search">
+          <AppIcon name="x" :size="12" />
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Tabs Section -->
+    <div v-if="charts.length > 0" class="filter-card card">
+      <div class="filter-groups">
+        <div class="tab-grp">
+          <button :class="['tab-btn', { active: filterTab === 'all' }]" @click="filterTab = 'all'">
+            All <span class="badge">{{ charts.length }}</span>
+          </button>
+          <button :class="['tab-btn', { active: filterTab === 'active' }]" @click="filterTab = 'active'">
+            Active <span class="badge green">{{ activeCount }}</span>
+          </button>
+          <button :class="['tab-btn', { active: filterTab === 'paused' }]" @click="filterTab = 'paused'">
+            Paused <span class="badge muted">{{ pausedCount }}</span>
+          </button>
         </div>
-        <div class="grow"></div>
+
+        <div class="tab-grp type-grp">
+          <button :class="['tab-btn', { active: filterType === 'all' }]" @click="filterType = 'all'">
+            All Types
+          </button>
+          <button
+            v-for="t in typeOptions"
+            :key="t.value"
+            v-show="typeCounts[t.value] > 0 || filterType === t.value"
+            :class="['tab-btn', { active: filterType === t.value }]"
+            @click="filterType = t.value"
+          >
+            {{ t.label }} <span class="badge type-count">{{ typeCounts[t.value] }}</span>
+          </button>
+        </div>
+
+        <button v-if="hasActiveChartFilters" class="link-btn reset-btn" @click="resetChartFilters">
+          <AppIcon name="x" :size="12" /> Clear filters
+        </button>
+      </div>
+    </div>
+
+
+    <AppLoading v-if="loading" label="Loading watchlist…" />
+
+    <div v-else-if="charts.length === 0" class="card empty-card">
+      <EmptyState
+        icon="charts"
+        title="No charts in the watchlist"
+        description="Add a TradingView chart URL or seed default charts to begin monitoring"
+        action="Add your first chart"
+        @action="openAdd"
+      />
+      <div class="empty-seed-bar">
         <BaseButton variant="ghost" @click="handleSeed" :disabled="seedLoading">
           <AppIcon v-if="!seedLoading" name="refresh" :size="13" />
           <span v-else class="spinner sm"></span>
-          {{ seedLoading ? 'Seeding…' : 'Seed default charts' }}
+          {{ seedLoading ? 'Seeding default charts…' : 'Seed default charts' }}
         </BaseButton>
-        <BaseButton @click="openAdd">
-          <AppIcon name="plus" :size="14" :stroke="2.5" />
-          Add chart
-        </BaseButton>
-      </header>
+      </div>
+    </div>
 
-      <!-- Standalone Search Bar Section -->
-      <div v-if="charts.length > 0" class="search-card card">
-        <div class="search-box">
-          <AppIcon name="search" :size="14" class="search-ic" />
-          <input
-            v-model="searchQuery"
-            type="text"
-            class="input search-input mono"
-            placeholder="Search symbols, types, URLs..."
-          />
-          <button v-if="searchQuery" class="clear-search-btn" @click="searchQuery = ''" title="Clear search">
-            <AppIcon name="x" :size="12" />
+    <div v-else class="card list-card">
+      <div class="list-head">
+        <div class="col-sym">Chart ({{ filteredCharts.length }})</div>
+        <div class="col-type">Type</div>
+        <div class="col-score">Last score</div>
+        <div class="col-scan">Last scanned</div>
+        <div class="col-status">Status</div>
+        <div class="col-actions"></div>
+      </div>
+      <div v-for="c in filteredCharts" :key="c.id" class="list-row">
+        <div class="col-sym">
+          <img v-if="favicon(c.url)" :src="favicon(c.url)" width="14" height="14" class="fav" alt="" />
+          <div class="sym-text">
+            <div class="sym mono">{{ c.name }}</div>
+            <div class="url mono" :title="c.url">{{ c.url }}</div>
+          </div>
+        </div>
+        <div class="col-type">
+          <span :class="['type-badge', c.type || 'crypto']">{{ typeBadgeLabel(c.type || 'crypto') }}</span>
+        </div>
+        <div class="col-score">
+          <span v-if="c.last_score !== null" :class="['score-num', 'mono', c.last_score >= 7 ? 'high' : c.last_score >= 5 ? 'mid' : 'low']">
+            {{ c.last_score.toFixed(1) }}
+          </span>
+          <span v-else class="muted mono">—</span>
+        </div>
+        <div class="col-scan mono">{{ fmtDate(c.last_scanned) }}</div>
+        <div class="col-status">
+          <BaseToggle :model-value="c.enabled" @update:model-value="(val) => handleToggle(c, val)">
+            <span :class="['status-lbl', c.enabled ? 'on' : 'off']">{{ c.enabled ? 'Active' : 'Paused' }}</span>
+          </BaseToggle>
+        </div>
+        <div class="col-actions">
+          <button class="icon-btn" @click="openEdit(c)" title="Edit chart" aria-label="Edit">
+            <AppIcon name="edit" :size="14" />
           </button>
-        </div>
-      </div>
-
-      <!-- Standalone Filter Tabs Section -->
-      <div v-if="charts.length > 0" class="filter-card card">
-        <div class="filter-groups">
-          <div class="tab-grp">
-            <button :class="['tab-btn', { active: filterTab === 'all' }]" @click="filterTab = 'all'">
-              All <span class="badge">{{ charts.length }}</span>
-            </button>
-            <button :class="['tab-btn', { active: filterTab === 'active' }]" @click="filterTab = 'active'">
-              Active <span class="badge green">{{ activeCount }}</span>
-            </button>
-            <button :class="['tab-btn', { active: filterTab === 'paused' }]" @click="filterTab = 'paused'">
-              Paused <span class="badge muted">{{ pausedCount }}</span>
-            </button>
-          </div>
-
-          <div class="tab-grp type-grp">
-            <button :class="['tab-btn', { active: filterType === 'all' }]" @click="filterType = 'all'">
-              All Types
-            </button>
-            <button
-              v-for="t in typeOptions"
-              :key="t.value"
-              v-show="typeCounts[t.value] > 0 || filterType === t.value"
-              :class="['tab-btn', { active: filterType === t.value }]"
-              @click="filterType = t.value"
-            >
-              {{ t.label }} <span class="badge type-count">{{ typeCounts[t.value] }}</span>
-            </button>
-          </div>
-
-          <button v-if="hasActiveChartFilters" class="link-btn reset-btn" @click="resetChartFilters">
-            <AppIcon name="x" :size="12" /> Clear filters
+          <button class="icon-btn danger" @click="handleDelete(c)" title="Delete chart" aria-label="Delete">
+            <AppIcon name="trash" :size="14" />
           </button>
-        </div>
-      </div>
-
-
-      <AppLoading v-if="loading" label="Loading watchlist…" />
-
-
-      <div v-else-if="charts.length === 0" class="card empty-card">
-        <EmptyState
-          icon="charts"
-          title="No charts in the watchlist"
-          description="Add a TradingView chart URL or seed default charts to begin monitoring"
-          action="Add your first chart"
-          @action="openAdd"
-        />
-        <div class="empty-seed-bar">
-          <BaseButton variant="ghost" @click="handleSeed" :disabled="seedLoading">
-            <AppIcon v-if="!seedLoading" name="refresh" :size="13" />
-            <span v-else class="spinner sm"></span>
-            {{ seedLoading ? 'Seeding default charts…' : 'Seed default charts' }}
-          </BaseButton>
-        </div>
-      </div>
-
-      <div v-else class="card list-card">
-        <div class="list-head">
-          <div class="col-sym">Chart ({{ filteredCharts.length }})</div>
-          <div class="col-type">Type</div>
-          <div class="col-score">Last score</div>
-          <div class="col-scan">Last scanned</div>
-          <div class="col-status">Status</div>
-          <div class="col-actions"></div>
-        </div>
-        <div v-for="c in filteredCharts" :key="c.id" class="list-row">
-          <div class="col-sym">
-            <img v-if="favicon(c.url)" :src="favicon(c.url)" width="14" height="14" class="fav" alt="" />
-            <div class="sym-text">
-              <div class="sym mono">{{ c.name }}</div>
-              <div class="url mono" :title="c.url">{{ c.url }}</div>
-            </div>
-          </div>
-          <div class="col-type">
-            <span :class="['type-badge', c.type || 'crypto']">{{ typeBadgeLabel(c.type || 'crypto') }}</span>
-          </div>
-          <div class="col-score">
-            <span v-if="c.last_score !== null" :class="['score-num', 'mono', c.last_score >= 7 ? 'high' : c.last_score >= 5 ? 'mid' : 'low']">
-              {{ c.last_score.toFixed(1) }}
-            </span>
-            <span v-else class="muted mono">—</span>
-          </div>
-          <div class="col-scan mono">{{ fmtDate(c.last_scanned) }}</div>
-          <div class="col-status">
-            <BaseToggle :model-value="c.enabled" @update:model-value="(val) => handleToggle(c, val)">
-              <span :class="['status-lbl', c.enabled ? 'on' : 'off']">{{ c.enabled ? 'Active' : 'Paused' }}</span>
-            </BaseToggle>
-          </div>
-          <div class="col-actions">
-            <button class="icon-btn" @click="openEdit(c)" title="Edit chart" aria-label="Edit">
-              <AppIcon name="edit" :size="14" />
-            </button>
-            <button class="icon-btn danger" @click="handleDelete(c)" title="Delete chart" aria-label="Delete">
-              <AppIcon name="trash" :size="14" />
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -438,17 +433,15 @@ function resetChartFilters() {
       @confirm="confirmDelete"
       @cancel="deleteTarget = null"
     />
-  </AppShell>
+  </div>
 </template>
 
 <style scoped>
-.pg { display: flex; flex-direction: column; gap: 18px; max-width: 1200px; }
-
-.pg-head { display: flex; align-items: flex-end; gap: 12px; }
-.pg-title { font: 600 18px var(--font-sans); letter-spacing: -0.015em; }
-.pg-sub { font: 400 12px var(--font-mono); color: var(--muted); margin-top: 3px; }
+.tab-wrapper { display: flex; flex-direction: column; gap: 18px; }
+.header-actions { display: flex; justify-content: flex-end; gap: 12px; }
 
 .empty-card { padding: 0; }
+.empty-seed-bar { padding: 12px; display: flex; justify-content: center; border-top: 1px solid var(--border); }
 
 .list-card { overflow: hidden; padding: 0; }
 .list-head, .list-row {
@@ -503,14 +496,13 @@ function resetChartFilters() {
 .col-scan { font: 500 12px var(--font-mono); color: var(--fg-2); }
 
 .col-status { display: flex; align-items: center; gap: 7px; }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.status-dot.on { background: var(--green); }
-.status-dot.off { background: var(--muted-2); }
 .status-lbl { font: 600 11.5px var(--font-sans); }
 .status-lbl.on { color: var(--green); }
 .status-lbl.off { color: var(--muted); }
 
 .col-actions { display: flex; gap: 4px; justify-content: flex-end; }
+.icon-btn { display: flex; align-items: center; justify-content: center; border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 5px; border-radius: 5px; transition: all .12s; }
+.icon-btn:hover { color: var(--fg); background: var(--surface-2); }
 .icon-btn.danger:hover { color: var(--red); background: var(--red-soft); }
 
 .modal-body { padding: 16px 18px 4px; display: flex; flex-direction: column; gap: 14px; }
@@ -518,75 +510,32 @@ function resetChartFilters() {
 .field { display: flex; flex-direction: column; gap: 6px; }
 .type-select { height: 36px; padding: 0 10px; border-radius: 6px; background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
 .toggle-field { padding-top: 4px; }
-.modal-foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 12px 18px;
-  border-top: 1px solid var(--border);
-  background: var(--bg-2);
-}
-.spinner.sm {
-  width: 13px; height: 13px;
-  border: 2px solid oklch(99% 0.003 250 / 0.3);
-  border-top-color: var(--accent-fg);
-}
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--border); background: var(--bg-2); }
+.spinner.sm { width: 13px; height: 13px; border: 2px solid oklch(99% 0.003 250 / 0.3); border-top-color: var(--accent-fg); }
 
-.search-card {
-  padding: 10px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
+.search-card, .filter-card { padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); }
 .search-box { position: relative; width: 100%; display: flex; align-items: center; }
 .search-ic { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
-.search-input { width: 100%; height: 34px; font-size: 12.5px; padding: 0 28px 0 32px; }
-.clear-search-btn {
-  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-  border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 3px;
-  display: flex; align-items: center; justify-content: center; border-radius: 4px;
-}
+.search-input { width: 100%; height: 34px; font-size: 12.5px; padding: 0 28px 0 32px; border: 0; background: transparent; color: var(--fg); outline: none; }
+.clear-search-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 3px; display: flex; align-items: center; justify-content: center; border-radius: 4px; }
 .clear-search-btn:hover { color: var(--fg); background: var(--surface-2); }
 
-.filter-card {
-  padding: 10px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
 .filter-groups { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .tab-grp { display: flex; align-items: center; gap: 4px; background: var(--bg-2); padding: 3px; border-radius: 6px; border: 1px solid var(--border); }
-.tab-btn {
-  display: flex; align-items: center; gap: 6px;
-  padding: 5px 10px; font: 500 12px var(--font-sans); color: var(--muted);
-  border: 0; background: transparent; border-radius: 4px; cursor: pointer; transition: all .12s;
-}
+.tab-btn { display: flex; align-items: center; gap: 6px; padding: 5px 10px; font: 500 12px var(--font-sans); color: var(--muted); border: 0; background: transparent; border-radius: 4px; cursor: pointer; transition: all .12s; }
 .tab-btn:hover { color: var(--fg); }
 .tab-btn.active { background: var(--surface-hi); color: var(--fg); font-weight: 600; }
-.badge {
-  font: 600 10px var(--font-mono); padding: 1px 5px; border-radius: 99px;
-  background: var(--surface-2); color: var(--muted);
-}
+.badge { font: 600 10px var(--font-mono); padding: 1px 5px; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
 .badge.green { background: oklch(40% 0.15 145 / 0.2); color: var(--green); }
 .badge.muted { background: var(--surface-2); color: var(--muted); }
 .badge.type-count { background: var(--surface-hi); color: var(--fg-2); }
-.reset-btn { font-size: 12px; color: var(--red); display: flex; align-items: center; gap: 4px; padding: 4px 8px; margin-left: auto; }
-
-
+.reset-btn { font-size: 12px; color: var(--red); display: flex; align-items: center; gap: 4px; padding: 4px 8px; margin-left: auto; border: 0; background: transparent; cursor: pointer; }
 
 @media (max-width: 840px) {
   .list-head { display: none; }
-  .list-row {
-    grid-template-columns: 1fr auto;
-    gap: 8px 12px;
-    padding: 12px 14px;
-  }
+  .list-row { grid-template-columns: 1fr auto; gap: 8px 12px; padding: 12px 14px; }
   .col-sym { grid-column: 1; }
   .col-actions { grid-column: 2; flex-direction: row; }
-  .col-type, .col-score, .col-scan, .col-status {
-    grid-column: 1 / -1;
-    padding-left: 24px;
-  }
+  .col-type, .col-score, .col-scan, .col-status { grid-column: 1 / -1; padding-left: 24px; }
 }
 </style>
-

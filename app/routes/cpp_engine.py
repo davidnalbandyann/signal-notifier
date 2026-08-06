@@ -2,7 +2,7 @@ import asyncio
 import json
 import structlog
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 
 from app.database import get_db
 from app.utils import get_display_timezone
@@ -15,13 +15,17 @@ SYSTEMD_SERVICE = "trading-notifier-engine.service"
 
 
 async def _run_cmd(*args: str) -> tuple[int, str, str]:
-    proc = await asyncio.create_subprocess_exec(
-        *args,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await proc.communicate()
-    return proc.returncode or 0, stdout.decode(), stderr.decode()
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        return proc.returncode or 0, stdout.decode(), stderr.decode()
+    except (FileNotFoundError, OSError) as e:
+        logger.warning("cmd_exec_failed", cmd=args[0], error=str(e))
+        return 127, "", str(e)
 
 
 async def _systemctl_active() -> bool:
@@ -74,7 +78,10 @@ async def start_engine(request: Request):
 
     rc, out, err = await _run_cmd("sudo", "systemctl", "start", SYSTEMD_SERVICE)
     if rc != 0:
-        raise Exception(f"systemctl start failed: {err.strip() or out.strip()}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"systemctl start failed: {err.strip() or out.strip() or 'systemctl not available'}",
+        )
 
     await asyncio.sleep(0.5)
     pid = await _systemctl_pid()
@@ -89,7 +96,10 @@ async def stop_engine(request: Request):
 
     rc, out, err = await _run_cmd("sudo", "systemctl", "stop", SYSTEMD_SERVICE)
     if rc != 0:
-        raise Exception(f"systemctl stop failed: {err.strip() or out.strip()}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"systemctl stop failed: {err.strip() or out.strip() or 'systemctl not available'}",
+        )
 
     logger.info("cpp_engine_stopped_via_systemd")
     return {"ok": True}

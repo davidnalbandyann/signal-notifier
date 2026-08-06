@@ -7,6 +7,7 @@ import {
   deleteAdminRecord,
   bulkDeleteAdminRecords,
   type AdminListResponse,
+  type AdminListParams,
 } from '@/api/admin'
 import { useToast } from '@/composables/useToast'
 import AppIcon from '@/components/ui/AppIcon.vue'
@@ -40,6 +41,24 @@ const page = ref(1)
 const pageSize = ref(20)
 const sortBy = ref('')
 const sortDir = ref<'asc' | 'desc'>('desc')
+
+const filterEnabled = ref('')
+const filterType = ref('')
+const filterDirection = ref('')
+const filterMinScore = ref(0)
+const filterSent = ref('')
+const filterStatus = ref('')
+const filterDateFrom = ref('')
+const filterDateTo = ref('')
+
+const typeOptions = [
+  { value: 'crypto', label: 'Crypto' },
+  { value: 'forex', label: 'Forex' },
+  { value: 'stocks', label: 'Stocks' },
+  { value: 'indices', label: 'Indices' },
+  { value: 'commodities', label: 'Commodities' },
+  { value: 'other', label: 'Other' },
+]
 
 const data = ref<AdminListResponse | null>(null)
 const selectedKeys = ref<Set<string | number>>(new Set())
@@ -92,13 +111,33 @@ async function loadData() {
   loading.value = true
   selectedKeys.value.clear()
   try {
-    const res = await fetchAdminList(currentModel.value.id, {
+    const modelId = currentModel.value.id
+    const params: AdminListParams = {
       search: search.value.trim(),
       page: page.value,
       page_size: pageSize.value,
       sort_by: sortBy.value || undefined,
       sort_dir: sortDir.value,
-    })
+    }
+    if (modelId === 'charts') {
+      if (filterEnabled.value) params.enabled = filterEnabled.value
+      if (filterType.value) params.type = filterType.value
+    }
+    if (modelId === 'analyses') {
+      if (filterDirection.value) params.direction = filterDirection.value
+      if (filterMinScore.value > 0) params.min_score = filterMinScore.value
+      if (filterSent.value) params.sent = filterSent.value
+    }
+    if (modelId === 'notifications') {
+      if (filterDirection.value) params.direction = filterDirection.value
+      if (filterStatus.value) params.status = filterStatus.value
+      if (filterMinScore.value > 0) params.min_score = filterMinScore.value
+    }
+    if (modelId === 'analyses' || modelId === 'notifications') {
+      if (filterDateFrom.value) params.date_from = filterDateFrom.value
+      if (filterDateTo.value) params.date_to = filterDateTo.value
+    }
+    const res = await fetchAdminList(modelId, params)
     data.value = res
   } catch (err: any) {
     toast.err(err.message || `Failed to load ${currentModel.value.label}`)
@@ -114,7 +153,47 @@ function switchModel(model: ModelConfig) {
   page.value = 1
   sortBy.value = ''
   sortDir.value = 'desc'
+  clearFilters()
+}
+
+const filterVisible = computed(() => currentModel.value.id !== 'settings')
+
+const activeFilterCount = computed(() => {
+  const modelId = currentModel.value.id
+  let count = 0
+  if (modelId === 'charts') {
+    if (filterEnabled.value) count++
+    if (filterType.value) count++
+  }
+  if (modelId === 'analyses') {
+    if (filterDirection.value) count++
+    if (filterMinScore.value > 0) count++
+    if (filterSent.value) count++
+  }
+  if (modelId === 'notifications') {
+    if (filterDirection.value) count++
+    if (filterStatus.value) count++
+    if (filterMinScore.value > 0) count++
+  }
+  if ((modelId === 'analyses' || modelId === 'notifications') && (filterDateFrom.value || filterDateTo.value)) count++
+  return count
+})
+
+function applyFilters() {
+  page.value = 1
   loadData()
+}
+
+function clearFilters() {
+  filterEnabled.value = ''
+  filterType.value = ''
+  filterDirection.value = ''
+  filterMinScore.value = 0
+  filterSent.value = ''
+  filterStatus.value = ''
+  filterDateFrom.value = ''
+  filterDateTo.value = ''
+  applyFilters()
 }
 
 function toggleSort(col: string) {
@@ -309,6 +388,101 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- Standalone Filters Section -->
+    <div v-if="filterVisible" class="filters-card card">
+      <div class="filters-inner">
+        <span class="filters-label">Filters</span>
+
+        <template v-if="currentModel.id === 'charts'">
+          <div class="filter-field">
+            <label class="filter-label" for="filterEnabled">Status</label>
+            <select id="filterEnabled" v-model="filterEnabled" @change="applyFilters" class="filter-select">
+              <option value="">All</option>
+              <option value="1">Enabled</option>
+              <option value="0">Disabled</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label class="filter-label" for="filterType">Type</label>
+            <select id="filterType" v-model="filterType" @change="applyFilters" class="filter-select">
+              <option value="">All types</option>
+              <option v-for="t in typeOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
+            </select>
+          </div>
+        </template>
+
+        <template v-else-if="currentModel.id === 'analyses'">
+          <div class="filter-field">
+            <label class="filter-label" for="filterDirection">Direction</label>
+            <select id="filterDirection" v-model="filterDirection" @change="applyFilters" class="filter-select">
+              <option value="">All</option>
+              <option value="LONG">Long</option>
+              <option value="SHORT">Short</option>
+              <option value="NEUTRAL">Neutral</option>
+            </select>
+          </div>
+          <div class="filter-field slider-field">
+            <label class="filter-label" for="filterMinScore">Min score</label>
+            <div class="slider-row">
+              <input id="filterMinScore" type="range" min="0" max="10" step="0.5" v-model.number="filterMinScore" @change="applyFilters" />
+              <span class="slider-val mono">{{ filterMinScore.toFixed(1) }}</span>
+            </div>
+          </div>
+          <div class="filter-field">
+            <label class="filter-label" for="filterSent">Signal sent</label>
+            <select id="filterSent" v-model="filterSent" @change="applyFilters" class="filter-select">
+              <option value="">All</option>
+              <option value="1">Yes</option>
+              <option value="0">No</option>
+            </select>
+          </div>
+        </template>
+
+        <template v-else-if="currentModel.id === 'notifications'">
+          <div class="filter-field">
+            <label class="filter-label" for="filterDirection">Direction</label>
+            <select id="filterDirection" v-model="filterDirection" @change="applyFilters" class="filter-select">
+              <option value="">All</option>
+              <option value="LONG">Long</option>
+              <option value="SHORT">Short</option>
+              <option value="NEUTRAL">Neutral</option>
+            </select>
+          </div>
+          <div class="filter-field">
+            <label class="filter-label" for="filterStatus">Delivery</label>
+            <select id="filterStatus" v-model="filterStatus" @change="applyFilters" class="filter-select">
+              <option value="">All</option>
+              <option value="sent">Sent</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+          <div class="filter-field slider-field">
+            <label class="filter-label" for="filterMinScore">Min score</label>
+            <div class="slider-row">
+              <input id="filterMinScore" type="range" min="0" max="10" step="0.5" v-model.number="filterMinScore" @change="applyFilters" />
+              <span class="slider-val mono">{{ filterMinScore.toFixed(1) }}</span>
+            </div>
+          </div>
+        </template>
+
+        <template v-if="currentModel.id === 'analyses' || currentModel.id === 'notifications'">
+          <div class="filter-field">
+            <label class="filter-label" for="filterDateFrom">From</label>
+            <input id="filterDateFrom" type="date" v-model="filterDateFrom" @change="applyFilters" class="filter-select" />
+          </div>
+          <div class="filter-field">
+            <label class="filter-label" for="filterDateTo">To</label>
+            <input id="filterDateTo" type="date" v-model="filterDateTo" @change="applyFilters" class="filter-select" />
+          </div>
+        </template>
+
+        <button v-if="activeFilterCount > 0" class="clear-filters-btn" @click="clearFilters">
+          <AppIcon name="x" :size="12" />
+          Clear ({{ activeFilterCount }})
+        </button>
+      </div>
+    </div>
+
     <!-- Model Meta & Table Controls -->
     <div class="toolbar-card card">
       <div class="model-meta">
@@ -348,7 +522,7 @@ onMounted(() => {
         v-else-if="items.length === 0"
         icon="charts"
         title="No Records Found"
-        :message="search ? 'No records matching search filter' : 'Table is currently empty.'"
+        :message="search || activeFilterCount > 0 ? 'No records matching your search or filters' : 'Table is currently empty.'"
       />
 
       <div v-else class="table-scroll">
@@ -705,6 +879,66 @@ onMounted(() => {
   color: var(--muted);
   cursor: pointer;
 }
+
+/* Standalone Filters Card */
+.filters-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+  border-radius: var(--radius);
+}
+.filters-inner {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.filters-label {
+  font: 600 11px var(--font-mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  align-self: center;
+  padding-bottom: 6px;
+}
+.filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.filter-label {
+  font: 500 11px var(--font-mono);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.filter-select {
+  height: 30px;
+  min-width: 130px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: var(--radius);
+  padding: 0 8px;
+  font: 400 12px var(--font-sans);
+}
+.filter-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.slider-field .slider-row { display: flex; align-items: center; gap: 8px; height: 30px; }
+.slider-field input[type="range"] { width: 110px; }
+.slider-val { font: 600 12px var(--font-mono); color: var(--accent-2); min-width: 30px; }
+.clear-filters-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--red);
+  font: 500 12px var(--font-sans);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 6px 8px;
+  margin-left: auto;
+}
+.clear-filters-btn:hover { text-decoration: underline; }
 
 .page-size-box {
   display: flex;

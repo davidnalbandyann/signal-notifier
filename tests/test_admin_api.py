@@ -15,6 +15,7 @@ def auth_headers():
 def setup_database():
     init_db()
     db = get_db()
+    db.execute("DELETE FROM active_strategies")
     db.execute("DELETE FROM notifications")
     db.execute("DELETE FROM analyses")
     db.execute("DELETE FROM charts")
@@ -137,3 +138,98 @@ def test_bulk_delete_admin_charts(auth_headers):
     response = client.post("/api/admin/charts/bulk-delete", json={"ids": ids}, headers=auth_headers)
     assert response.status_code == 200
     assert response.json()["deleted_count"] == len(ids)
+
+def test_filter_charts_by_enabled(auth_headers):
+    client = TestClient(app)
+    response = client.get("/api/admin/charts?enabled=1", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["name"] == "BTC/USDT"
+
+    response = client.get("/api/admin/charts?enabled=0", headers=auth_headers)
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["name"] == "ETH/USDT"
+
+def test_filter_charts_by_type(auth_headers):
+    client = TestClient(app)
+    response = client.get("/api/admin/charts?type=crypto", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 2
+    assert all(item["type"] == "crypto" for item in data["items"])
+
+    response = client.get("/api/admin/charts?type=forex", headers=auth_headers)
+    assert response.json()["total"] == 0
+
+def test_filter_analyses_by_direction(auth_headers):
+    client = TestClient(app)
+    response = client.get("/api/admin/analyses?direction=LONG", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["direction"] == "LONG"
+
+    response = client.get("/api/admin/analyses?direction=SHORT", headers=auth_headers)
+    assert response.json()["total"] == 0
+
+def test_filter_analyses_by_min_score(auth_headers):
+    client = TestClient(app)
+    response = client.get("/api/admin/analyses?min_score=8", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+
+    response = client.get("/api/admin/analyses?min_score=9", headers=auth_headers)
+    assert response.json()["total"] == 0
+
+def test_filter_analyses_by_sent(auth_headers):
+    client = TestClient(app)
+    db = get_db()
+    db.execute("UPDATE analyses SET sent = 1 WHERE chart_name = 'BTC/USDT'")
+    db.commit()
+
+    response = client.get("/api/admin/analyses?sent=1", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+
+    response = client.get("/api/admin/analyses?sent=0", headers=auth_headers)
+    assert response.json()["total"] == 0
+
+def test_filter_notifications_by_status(auth_headers):
+    client = TestClient(app)
+    response = client.get("/api/admin/notifications?status=sent", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["status"] == "sent"
+
+    response = client.get("/api/admin/notifications?status=failed", headers=auth_headers)
+    assert response.json()["total"] == 0
+
+def test_filter_date_range(auth_headers):
+    client = TestClient(app)
+    response = client.get("/api/admin/analyses?date_from=2026-08-03&date_to=2026-08-03", headers=auth_headers)
+    assert response.status_code == 200
+    assert response.json()["total"] == 1
+
+    response = client.get("/api/admin/analyses?date_to=2026-08-02", headers=auth_headers)
+    assert response.json()["total"] == 0
+
+    response = client.get("/api/admin/notifications?date_from=2026-08-03", headers=auth_headers)
+    assert response.json()["total"] == 1
+
+def test_combined_search_and_filter(auth_headers):
+    client = TestClient(app)
+    response = client.get("/api/admin/analyses?search=BTC&direction=LONG", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["chart_name"] == "BTC/USDT"
+
+def test_unknown_filter_param_ignored(auth_headers):
+    client = TestClient(app)
+    response = client.get("/api/admin/charts?direction=LONG", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 2

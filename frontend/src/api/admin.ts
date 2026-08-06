@@ -12,6 +12,14 @@ export interface AdminListResponse<T = Record<string, any>> {
 
 export interface AdminListParams {
   search?: string
+  type?: string
+  enabled?: string
+  direction?: string
+  min_score?: number
+  sent?: string
+  status?: string
+  date_from?: string
+  date_to?: string
   page?: number
   page_size?: number
   sort_by?: string
@@ -24,6 +32,14 @@ export async function fetchAdminList<T = Record<string, any>>(
 ): Promise<AdminListResponse<T>> {
   const query = new URLSearchParams()
   if (params.search) query.set('search', params.search)
+  if (params.type) query.set('type', params.type)
+  if (params.enabled) query.set('enabled', params.enabled)
+  if (params.direction) query.set('direction', params.direction)
+  if (params.min_score != null) query.set('min_score', String(params.min_score))
+  if (params.sent) query.set('sent', params.sent)
+  if (params.status) query.set('status', params.status)
+  if (params.date_from) query.set('date_from', params.date_from)
+  if (params.date_to) query.set('date_to', params.date_to)
   if (params.page) query.set('page', params.page.toString())
   if (params.page_size) query.set('page_size', params.page_size.toString())
   if (params.sort_by) query.set('sort_by', params.sort_by)
