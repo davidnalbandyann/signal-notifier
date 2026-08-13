@@ -42,6 +42,24 @@ def test_list_charts_and_type_filter(auth_headers):
     assert forex_charts[0]["name"] == "EUR/USD"
     assert forex_charts[0]["type"] == "forex"
 
+def test_create_chart_rejects_blank_name(auth_headers):
+    client = TestClient(app)
+    r = client.post("/api/charts", json={"name": "", "url": "https://tradingview.com/chart/?symbol=BINANCE:BTCUSDT"}, headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_create_chart_rejects_blank_url(auth_headers):
+    client = TestClient(app)
+    r = client.post("/api/charts", json={"name": "BTC/USDT", "url": ""}, headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_create_chart_rejects_whitespace_only(auth_headers):
+    client = TestClient(app)
+    r = client.post("/api/charts", json={"name": "   ", "url": "   "}, headers=auth_headers)
+    assert r.status_code == 422
+
+
 def test_create_chart_with_type_and_auto_infer(auth_headers):
     client = TestClient(app)
     # Create with explicit type

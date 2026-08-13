@@ -82,7 +82,7 @@ async def get_analysis(analysis_id: int):
         "SELECT a.*, (SELECT n.id FROM notifications n WHERE n.analysis_id = a.id ORDER BY n.id DESC LIMIT 1) AS notification_id FROM analyses a WHERE a.id = ?", (analysis_id,)
     ).fetchone()
     if not row:
-        return {}
+        raise HTTPException(status_code=404, detail="analysis not found")
     return _analysis_row(row)
 
 

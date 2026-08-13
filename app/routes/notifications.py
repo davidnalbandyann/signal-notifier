@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, HTTPException
 from app.database import get_db
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
@@ -44,7 +44,7 @@ async def get_notification(notification_id: int):
         "SELECT * FROM notifications WHERE id = ?", (notification_id,)
     ).fetchone()
     if not row:
-        return {}
+        raise HTTPException(status_code=404, detail="notification not found")
     return _notification_row(row)
 
 

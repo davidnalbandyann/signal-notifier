@@ -130,7 +130,7 @@ function fmt(iso: string) {
         <div
           v-for="n in items"
           :key="n.id"
-          class="list-row"
+          :class="['list-row', { clickable: n.analysis_id }]"
           @click="go(n.analysis_id)"
         >
           <div class="col-msg">
@@ -233,10 +233,10 @@ function fmt(iso: string) {
 }
 .list-row {
   border-top: 1px solid var(--border);
-  cursor: pointer;
   transition: background .12s;
 }
-.list-row:hover { background: var(--surface-2); }
+.list-row.clickable { cursor: pointer; }
+.list-row.clickable:hover { background: var(--surface-2); }
 
 .col-msg { min-width: 0; }
 .msg-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }

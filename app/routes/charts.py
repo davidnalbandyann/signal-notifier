@@ -1,8 +1,24 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field, field_validator
 from app.database import get_db, infer_chart_type
 
 router = APIRouter(prefix="/api/charts", tags=["charts"])
+
+
+class ChartCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    url: str = Field(min_length=1)
+    type: Optional[str] = None
+    enabled: Optional[bool] = True
+
+    @field_validator("name", "url")
+    @classmethod
+    def _strip_and_require(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("must not be blank")
+        return v
 
 
 @router.get("")
@@ -20,13 +36,13 @@ async def list_charts(type: Optional[str] = Query(None)):
 
 
 @router.post("")
-async def create_chart(body: dict):
+async def create_chart(body: ChartCreate):
     db = get_db()
-    chart_type = body.get("type") or infer_chart_type(body.get("name", ""), body.get("url", ""))
+    chart_type = body.type or infer_chart_type(body.name, body.url)
     try:
         cur = db.execute(
             "INSERT INTO charts (name, url, type, enabled) VALUES (?, ?, ?, 1)",
-            (body["name"], body["url"], chart_type),
+            (body.name, body.url, chart_type),
         )
         db.commit()
     except Exception:

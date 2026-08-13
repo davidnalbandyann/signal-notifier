@@ -165,6 +165,18 @@ def create_admin_record(
     cols_cur = db.execute(f"PRAGMA table_info({table})")
     valid_cols = {row["name"] for row in cols_cur.fetchall()}
 
+    required_text_cols = {
+        "charts": {"name", "url"},
+    }.get(table, set())
+
+    for col in required_text_cols:
+        val = data.get(col)
+        if val is None or (isinstance(val, str) and not val.strip()):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"{col} must not be blank",
+            )
+
     # Filter out invalid columns or auto-increment pk if not provided
     insert_data = {}
     for k, v in data.items():

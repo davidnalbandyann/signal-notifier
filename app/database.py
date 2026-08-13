@@ -45,7 +45,7 @@ def infer_chart_type(name: str, url: str) -> str:
     if "SYMBOL=BINANCE:" in u or "SYMBOL=BYBIT:" in u or "SYMBOL=COINBASE:" in u or "SYMBOL=KUCOIN:" in u or "SYMBOL=OKX:" in u or "USDT" in u or "USDT" in n or "/USDT" in n:
         return "crypto"
 
-    return "crypto"
+    return "other"
 
 
 def init_db() -> None:
@@ -178,6 +178,12 @@ def init_db() -> None:
                 inferred = infer_chart_type(r["name"], r["url"])
                 if inferred != r["type"]:
                     db.execute("UPDATE charts SET type = ? WHERE id = ?", (inferred, r["id"]))
+        db.commit()
+    except Exception:
+        pass
+
+    try:
+        db.execute("DELETE FROM charts WHERE TRIM(name) = '' OR TRIM(url) = ''")
         db.commit()
     except Exception:
         pass

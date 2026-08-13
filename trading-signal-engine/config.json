@@ -34,6 +34,6 @@
   },
   "logging": {
     "level": "info",
-    "timezone": "Asia/Yerevan"
+    "timezone": "UTC"
   }
 }

@@ -13,9 +13,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { ...options, headers })
 
   if (res.status === 401) {
-    localStorage.removeItem('tcm_token')
-    window.location.href = '/login'
-    throw new Error('Unauthorized')
+    const onLogin = window.location.pathname.startsWith('/login')
+    if (!onLogin) {
+      localStorage.removeItem('tcm_token')
+      window.location.href = '/login'
+    }
+    let detail = 'Unauthorized'
+    try {
+      const body = await res.json()
+      if (body && body.detail) detail = String(body.detail)
+    } catch {}
+    throw new Error(detail)
   }
 
   if (!res.ok) {

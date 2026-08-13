@@ -682,12 +682,13 @@ onMounted(() => {
 
           <template v-else-if="col === 'type'">
             <select :id="`field-${col}`" v-model="formData[col]" class="form-select">
+              <option value="">Auto-detect</option>
+              <option value="other">Other</option>
               <option value="crypto">Crypto</option>
               <option value="forex">Forex</option>
               <option value="stocks">Stocks</option>
               <option value="indices">Indices</option>
               <option value="commodities">Commodities</option>
-              <option value="other">Other</option>
             </select>
           </template>
 
