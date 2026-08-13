@@ -377,26 +377,30 @@ async def test_run_active_strategy(sid: int, request: Request):
         if row["mode"] in ("ai_only", "hybrid") and ai_prompt:
             result = await nvidia.analyze_chart(img_bytes, ai_prompt)
             return {
-                "ok": True,
-                "score": result.score,
-                "direction": result.direction,
-                "reason": result.reason,
-                "entry": result.entry,
-                "stop_loss": result.stop_loss,
-                "take_profit": result.take_profit,
-                "error": result.error,
+                "success": True,
+                "result": {
+                    "score": result.score,
+                    "direction": result.direction,
+                    "reason": result.reason,
+                    "entry": result.entry,
+                    "stop_loss": result.stop_loss,
+                    "take_profit": result.take_profit,
+                    "error": result.error,
+                },
                 "mode_tested": row["mode"]
             }
         elif row["mode"] == "cpp_only":
             return {
-                "ok": True,
-                "score": 10.0,
-                "direction": "LONG",
-                "reason": "Test Run in C++ Only mode bypasses AI analysis entirely.",
+                "success": True,
+                "result": {
+                    "score": 10.0,
+                    "direction": "LONG",
+                    "reason": "Test Run in C++ Only mode bypasses AI analysis entirely.",
+                },
                 "mode_tested": row["mode"]
             }
         else:
-            return {"ok": False, "error": "No AI prompt linked to perform test run."}
+            raise HTTPException(status_code=400, detail="No AI prompt linked to perform test run.")
             
     except Exception as e:
         logger.error("test_run_failed", sid=sid, error=str(e))

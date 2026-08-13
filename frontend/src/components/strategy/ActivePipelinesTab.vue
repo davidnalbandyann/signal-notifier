@@ -68,7 +68,7 @@ async function load() {
       getAiStrategies(),
       getCppStrategies()
     ])
-    pipelines.value = pRes?.active_strategies || []
+    pipelines.value = pRes?.strategies || []
     charts.value = Array.isArray(cRes) ? cRes : []
     aiStrats.value = aRes?.strategies || []
     cppStrats.value = cppRes?.strategies || []

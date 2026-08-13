@@ -46,7 +46,7 @@ export function getCppCatalog() {
 
 // Active Strategies
 export function getActiveStrategies() {
-  return api.get<{ active_strategies: ActiveStrategy[] }>('/api/strategies/active')
+  return api.get<{ strategies: ActiveStrategy[] }>('/api/strategies/active')
 }
 export function getActiveStrategy(id: number) {
   return api.get<ActiveStrategy>(`/api/strategies/active/${id}`)
