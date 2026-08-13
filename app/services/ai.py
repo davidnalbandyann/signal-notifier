@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import json
 import re
 import structlog
 from pathlib import Path
@@ -12,12 +13,31 @@ from app.models.schemas import AnalysisResult, Direction
 logger = structlog.get_logger(__name__)
 
 
-class NvidiaService:
+def _normalize_analysis_json(text: str) -> AnalysisResult | None:
+    """Parse a JSON candidate, coercing numeric price levels to strings."""
+    try:
+        data = json.loads(text)
+    except Exception:
+        return None
+    if not isinstance(data, dict):
+        return None
+    for key in ("entry", "stop_loss", "take_profit"):
+        val = data.get(key)
+        if val is not None and not isinstance(val, str):
+            data[key] = str(val)
+    try:
+        return AnalysisResult.model_validate(data)
+    except Exception:
+        return None
+
+
+class AIService:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self._api_key = settings.NVIDIA_API_KEY
-        self._model = settings.NVIDIA_MODEL
-        self._invoke_url = "https://integrate.api.nvidia.com/v1/chat/completions"
+        self._api_key = settings.MINIMAX_API_KEY
+        self._model = settings.MINIMAX_MODEL
+        base = (settings.MINIMAX_BASE_URL or "https://api.minimax.io").rstrip("/")
+        self._invoke_url = f"{base}/v1/chat/completions"
         self._prompt_path = Path("prompts/strategy.md")
 
     def _load_prompt(self) -> str:
@@ -49,7 +69,7 @@ class NvidiaService:
                 status = e.response.status_code if e.response is not None else None
                 last_error = f"HTTP {status}: {e}" if status else str(e)
                 logger.warning(
-                    "nvidia_api_error",
+                    "minimax_api_error",
                     attempt=attempt,
                     status=status,
                     error=str(e),
@@ -99,6 +119,7 @@ class NvidiaService:
             "max_tokens": 8192,
             "temperature": 1.00,
             "top_p": 0.95,
+            "thinking": {"type": "disabled"},
             "stream": False,
         }
 
@@ -151,16 +172,15 @@ class NvidiaService:
         for c in candidates:
             if not c:
                 continue
-            try:
-                result = AnalysisResult.model_validate_json(c)
-                logger.info(
-                    "analysis_complete",
-                    score=result.score,
-                    direction=result.direction.value,
-                )
-                return result
-            except Exception:
+            result = _normalize_analysis_json(c)
+            if result is None:
                 continue
+            logger.info(
+                "analysis_complete",
+                score=result.score,
+                direction=result.direction.value,
+            )
+            return result
 
         logger.error("json_parse_failed", raw=text[:500])
         return self._fallback_analysis(

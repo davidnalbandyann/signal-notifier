@@ -366,16 +366,16 @@ async def test_run_active_strategy(sid: int, request: Request):
     
     app_state = request.app.state
     browser = app_state.browser
-    nvidia = app_state.nvidia
+    ai = app_state.ai
     
     try:
         # Capture screenshot
-        img_bytes = await browser.capture_chart(chart["url"])
+        img_bytes = await browser.capture(chart["name"], chart["url"])
         
         # We don't have C++ engine output, so for hybrid/ai_only we just do AI logic
         # Run AI logic
         if row["mode"] in ("ai_only", "hybrid") and ai_prompt:
-            result = await nvidia.analyze_chart(img_bytes, ai_prompt)
+            result = await ai.analyze(img_bytes, ai_prompt)
             return {
                 "success": True,
                 "result": {

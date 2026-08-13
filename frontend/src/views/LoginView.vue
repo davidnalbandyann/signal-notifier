@@ -98,7 +98,7 @@ async function submit() {
       </form>
 
       <div class="footnote">
-        TradingView &middot; NVIDIA MiniMax-M3 &middot; Telegram delivery
+        TradingView &middot; MiniMax-M3 &middot; Telegram delivery
       </div>
     </div>
   </div>

@@ -375,12 +375,12 @@ function scrollTo(id: string) {
               <div class="field">
                 <div class="lbl">
                   <div class="k">Model</div>
-                  <div class="h">NVIDIA NIM vision model used for analysis.</div>
+                  <div class="h">MiniMax vision model used for analysis.</div>
                 </div>
                 <div class="ctrl">
                   <input type="text" class="input mono"
-                    :value="settings.NVIDIA_MODEL"
-                    @input="setField('NVIDIA_MODEL', ($event.target as HTMLInputElement).value)" />
+                    :value="settings.MINIMAX_MODEL"
+                    @input="setField('MINIMAX_MODEL', ($event.target as HTMLInputElement).value)" />
                 </div>
               </div>
               <div class="field">
@@ -390,12 +390,23 @@ function scrollTo(id: string) {
                 </div>
                 <div class="ctrl">
                   <input :type="showApiKey ? 'text' : 'password'" class="input mono"
-                    :value="settings.NVIDIA_API_KEY"
-                    @input="setField('NVIDIA_API_KEY', ($event.target as HTMLInputElement).value)" />
+                    :value="settings.MINIMAX_API_KEY"
+                    @input="setField('MINIMAX_API_KEY', ($event.target as HTMLInputElement).value)" />
                   <button type="button" class="reveal" @click="showApiKey = !showApiKey">
                     <AppIcon :name="showApiKey ? 'eyeOff' : 'eye'" :size="12" />
                     {{ showApiKey ? 'Hide' : 'Show' }}
                   </button>
+                </div>
+              </div>
+              <div class="field">
+                <div class="lbl">
+                  <div class="k">Base URL</div>
+                  <div class="h">MiniMax API base (api.minimax.io for international).</div>
+                </div>
+                <div class="ctrl">
+                  <input type="text" class="input mono"
+                    :value="settings.MINIMAX_BASE_URL"
+                    @input="setField('MINIMAX_BASE_URL', ($event.target as HTMLInputElement).value)" />
                 </div>
               </div>
             </div>

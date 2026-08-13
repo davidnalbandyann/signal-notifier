@@ -75,8 +75,9 @@ export interface Settings {
   HEADLESS?: boolean
   BROWSER_VIEWPORT_WIDTH?: number
   BROWSER_VIEWPORT_HEIGHT?: number
-  NVIDIA_API_KEY?: string
-  NVIDIA_MODEL?: string
+  MINIMAX_API_KEY?: string
+  MINIMAX_MODEL?: string
+  MINIMAX_BASE_URL?: string
   AI_CALL_DELAY?: number
   BROWSER_USER_DATA_DIR?: string
   BROWSER_RETRY_COUNT?: number

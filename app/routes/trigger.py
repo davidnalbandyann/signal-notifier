@@ -89,7 +89,7 @@ async def trigger_signal(body: dict, request: Request):
     logger.info("trigger_received", sid=active_strategy_id, name=row["name"], symbol=symbol, direction=direction)
 
     browser = request.app.state.browser
-    nvidia = request.app.state.nvidia
+    ai = request.app.state.ai
     telegram = request.app.state.telegram
 
     try:
@@ -123,7 +123,7 @@ async def trigger_signal(body: dict, request: Request):
         analysis.score = round(min(10.0, max(0.0, score)), 1)
     else:
         try:
-            analysis = await nvidia.analyze(screenshot, ai_prompt)
+            analysis = await ai.analyze(screenshot, ai_prompt)
         except Exception as e:
             logger.error("trigger_pipeline_failed", sid=active_strategy_id, error=str(e))
             raise HTTPException(status_code=500, detail=str(e))

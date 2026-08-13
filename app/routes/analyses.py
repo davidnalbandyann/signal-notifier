@@ -159,8 +159,8 @@ async def resend_analysis(analysis_id: int, request: Request):
 
 @router.post("/{analysis_id}/reanalyze")
 async def reanalyze_analysis(analysis_id: int, request: Request):
-    nvidia = getattr(request.app.state, "nvidia", None)
-    if nvidia is None:
+    ai = getattr(request.app.state, "ai", None)
+    if ai is None:
         raise HTTPException(status_code=503, detail="AI service not available")
 
     db = get_db()
@@ -173,7 +173,7 @@ async def reanalyze_analysis(analysis_id: int, request: Request):
         raise HTTPException(status_code=404, detail="Screenshot not found for reanalysis")
 
     try:
-        new_analysis = await nvidia.analyze(screenshot_bytes)
+        new_analysis = await ai.analyze(screenshot_bytes)
     except Exception as e:
         logger.error("reanalyze_failed", analysis_id=analysis_id, error=str(e))
         raise HTTPException(status_code=500, detail=f"Reanalysis failed: {e}")

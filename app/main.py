@@ -22,17 +22,17 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings.validate_required()
 
     from app.services.browser import BrowserService
-    from app.services.gemini import NvidiaService
+    from app.services.ai import AIService
     from app.services.telegram import TelegramService
     from app.services.scheduler import SchedulerService
 
     browser = BrowserService(settings)
-    nvidia = NvidiaService(settings)
+    ai = AIService(settings)
     telegram = TelegramService(settings)
-    scheduler = SchedulerService(settings, browser, nvidia, telegram)
+    scheduler = SchedulerService(settings, browser, ai, telegram)
 
     app.state.browser = browser
-    app.state.nvidia = nvidia
+    app.state.ai = ai
     app.state.telegram = telegram
     app.state.scheduler = scheduler
     app.state._settings = settings

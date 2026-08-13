@@ -27,8 +27,9 @@ class Settings(BaseSettings):
     TELEGRAM_CHAT_ID: str = ""
     DASHBOARD_BASE_URL: str = ""
 
-    NVIDIA_API_KEY: str = ""
-    NVIDIA_MODEL: str = "minimaxai/minimax-m3"
+    MINIMAX_API_KEY: str = ""
+    MINIMAX_MODEL: str = "MiniMax-M3"
+    MINIMAX_BASE_URL: str = "https://api.minimax.io"
     AI_CALL_DELAY: float = 2.0
 
     BROWSER_USER_DATA_DIR: str = ""
@@ -47,7 +48,7 @@ class Settings(BaseSettings):
     REQUIRED_ENVVARS: ClassVar[list[str]] = [
         "TELEGRAM_TOKEN",
         "TELEGRAM_CHAT_ID",
-        "NVIDIA_API_KEY",
+        "MINIMAX_API_KEY",
     ]
 
     def validate_required(self) -> None:

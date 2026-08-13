@@ -10,8 +10,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.config.settings import Settings
 from app.database import get_db
 from app.state import get_paused, set_last_scan
+from app.services.ai import AIService
 from app.services.browser import BrowserService
-from app.services.gemini import NvidiaService
 from app.services.telegram import TelegramService
 
 logger = structlog.get_logger(__name__)
@@ -21,12 +21,12 @@ class SchedulerService:
         self,
         settings: Settings,
         browser: BrowserService,
-        gemini: NvidiaService,
+        ai: AIService,
         telegram: TelegramService,
     ) -> None:
         self.settings = settings
         self.browser = browser
-        self.gemini = gemini
+        self.ai = ai
         self.telegram = telegram
         self._scheduler = AsyncIOScheduler()
 
@@ -119,8 +119,8 @@ class SchedulerService:
         # Capture Screenshot
         screenshot = await self.browser.capture(chart["name"], chart["url"])
         
-        # Analyze using NVIDIA AI
-        analysis = await self.gemini.analyze(screenshot, ai_prompt)
+        # Analyze using MiniMax AI
+        analysis = await self.ai.analyze(screenshot, ai_prompt)
         
         now = datetime.now(timezone.utc).isoformat()
         db = get_db()
