@@ -53,6 +53,10 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "su - tcm -c 'cd /home/tcm/trading-notifier && cmake -S trading-signal-engine -B trading-signal-engine/build -DCMAKE_BUILD_TYPE=Release && cmake --build trading-signal-engine/build -j\$(nproc)'"
 
+      - name: Sync MINIMAX_API_KEY to prod .env
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "grep -v '^MINIMAX_API_KEY=' /home/tcm/trading-notifier/.env > /tmp/env.tmp && mv /tmp/env.tmp /home/tcm/trading-notifier/.env && echo 'MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}' >> /home/tcm/trading-notifier/.env && chown tcm:tcm /home/tcm/trading-notifier/.env"
+
       - name: Restart services
         run: |
           ssh -i ~/.ssh/id_ed25519 root@${{ vars.VPS_HOST || '91.98.31.30' }} "systemctl daemon-reload && systemctl restart trading-notifier-api && sleep 2 && systemctl restart trading-notifier-engine"
